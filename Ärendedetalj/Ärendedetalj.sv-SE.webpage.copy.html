@@ -1,0 +1,662 @@
+{% comment %}
+Ärendedetalj - Detaljerad vy för ärende, för slutanvändare som vill följa upp sina ärenden.
+Delar designspråk (färger/kort/badges) med Ärende-listan för visuell konsekvens.
+{% endcomment %}
+
+{% assign id = request.params.id | default: '' | strip %}
+
+<div class="detail-page">
+
+{% if id == '' %}
+  <div class="detail-header">
+    <div class="detail-header-content">
+      <a href="/Ärende" class="detail-header-back">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+        Tillbaka till Ärenden
+      </a>
+      <div class="alert alert-warning">
+        <span class="alert-icon"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7.89003 1.0499C7.80611 0.886097 7.67861 0.748632 7.52158 0.652642 7.36455 0.556651 7.18407 0.505859 7.00003 0.505859c-0.18405 0 -0.36453 0.050792 -0.52156 0.146783 -0.15703 0.09599 -0.28453 0.233455 -0.36844 0.397258l-5.500004 11c-0.07671 0.1522 -0.113232 0.3215 -0.106098 0.4919 0.007134 0.1703 0.057688 0.3359 0.146861 0.4812 0.089172 0.1453 0.214003 0.2654 0.362641 0.3488 0.14863 0.0835 0.31613 0.1276 0.4866 0.1281H12.5c0.1705 -0.0005 0.338 -0.0446 0.4866 -0.1281 0.1487 -0.0834 0.2735 -0.2035 0.3627 -0.3488 0.0891 -0.1453 0.1397 -0.3109 0.1468 -0.4812 0.0072 -0.1704 -0.0294 -0.3397 -0.1061 -0.4919l-5.49997 -11Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 5v3.25" stroke-width="1"></path><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 11c-0.13807 0 -0.25 -0.1119 -0.25 -0.25s0.11193 -0.25 0.25 -0.25" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 11c0.13807 0 0.25 -0.1119 0.25 -0.25s-0.11193 -0.25 -0.25 -0.25" stroke-width="1"></path></g></g></svg></span>
+        <div>
+          <div class="alert-title">Parameter saknas</div>
+          <p style="margin:8px 0 0 0;">Öppna sidan via <span class="alert-code">/Ärendedetalj?id=&lt;GUID&gt;</span></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+{% else %}
+
+  {% fetchxml detailsSet %}
+  <fetch version="1.0" output-format="xml-platform" mapping="logical" top="1">
+    <entity name="cr5ee_arenden">
+      <attribute name="cr5ee_arendenid" />
+      <attribute name="cr5ee_arendeid" />
+      <attribute name="cr5ee_name" />
+      <attribute name="createdon" />
+      <attribute name="cr5ee_gallande" />
+      <attribute name="cr5ee_prioritet" />
+      <attribute name="cr5ee_status" />
+      <attribute name="cr5ee_typ" />
+      <attribute name="cr5ee_bestallare" />
+      <attribute name="cr5ee_beskrivning" />
+      <attribute name="cr5ee_genomforande" />
+      <attribute name="cr5ee_accepterades" />
+      <attribute name="cr5ee_slutfordes" />
+      <filter type="and">
+        <condition attribute="cr5ee_arendenid" operator="eq" value="{{ id }}" />
+      </filter>
+    </entity>
+  </fetch>
+  {% endfetchxml %}
+
+  {% assign items = detailsSet.results.entities %}
+
+  {% if items and items.size > 0 %}
+    {% assign arende = items.first %}
+
+    {%- comment -%} Typ {%- endcomment -%}
+    {%- assign typ_label = arende['cr5ee_typ@OData.Community.Display.V1.FormattedValue'] -%}
+    {%- if typ_label == nil and arende.cr5ee_typ and arende.cr5ee_typ.Label -%}
+      {%- assign typ_label = arende.cr5ee_typ.Label -%}
+    {%- endif -%}
+    {%- if typ_label == nil and arende.cr5ee_typ.Value != nil -%}
+      {%- case arende.cr5ee_typ.Value -%}
+        {%- when 10 -%}{%- assign typ_label = 'System' -%}
+        {%- when 5 -%}{%- assign typ_label = 'Önskemål' -%}
+        {%- when 1 -%}{%- assign typ_label = 'Blå' -%}
+        {%- when 100 -%}{%- assign typ_label = 'Ärende' -%}
+      {%- endcase -%}
+    {%- endif -%}
+
+    {%- comment -%} Prioritet {%- endcomment -%}
+    {%- assign prio_label = arende['cr5ee_prioritet@OData.Community.Display.V1.FormattedValue'] -%}
+    {%- if prio_label == nil and arende.cr5ee_prioritet and arende.cr5ee_prioritet.Label -%}
+      {%- assign prio_label = arende.cr5ee_prioritet.Label -%}
+    {%- endif -%}
+    {%- if prio_label == nil and arende.cr5ee_prioritet.Value != nil -%}
+      {%- case arende.cr5ee_prioritet.Value -%}
+        {%- when 10 -%}{%- assign prio_label = 'Kritisk' -%}
+        {%- when 7 -%}{%- assign prio_label = 'Hög' -%}
+        {%- when 4 -%}{%- assign prio_label = 'Normal' -%}
+        {%- when 1 -%}{%- assign prio_label = 'Låg' -%}
+      {%- endcase -%}
+    {%- endif -%}
+
+    {%- comment -%}
+    Status - cr5ee_status är den enda källan till sanning för "var ärendet befinner sig".
+    (statuscode användes tidigare som fallback men visade ibland en annan text än denna
+    badge, vilket var förvirrande - därför är cr5ee_status nu det enda som styr status-UI.)
+    {%- endcomment -%}
+    {%- assign status_label = arende['cr5ee_status@OData.Community.Display.V1.FormattedValue'] -%}
+    {%- if status_label == nil and arende.cr5ee_status and arende.cr5ee_status.Label -%}
+      {%- assign status_label = arende.cr5ee_status.Label -%}
+    {%- endif -%}
+
+    {%- assign gallande_label = arende['cr5ee_gallande@OData.Community.Display.V1.FormattedValue'] -%}
+    {%- if gallande_label == nil and arende.cr5ee_gallande and arende.cr5ee_gallande.Label -%}
+      {%- assign gallande_label = arende.cr5ee_gallande.Label -%}
+    {%- endif -%}
+
+    {%- assign bestallare_label = arende['cr5ee_bestallare@OData.Community.Display.V1.FormattedValue'] -%}
+    {%- if bestallare_label == nil and arende.cr5ee_bestallare and arende.cr5ee_bestallare.Name -%}
+      {%- assign bestallare_label = arende.cr5ee_bestallare.Name -%}
+    {%- endif -%}
+
+    {%- comment -%} Badge-klasser {%- endcomment -%}
+    {%- assign typ_badge = 'badge badge-default' -%}
+    {%- case typ_label -%}
+      {%- when 'System' -%}{%- assign typ_badge = 'badge badge-type-system' -%}
+      {%- when 'Önskemål' -%}{%- assign typ_badge = 'badge badge-type-onskemal' -%}
+      {%- when 'Ärende' -%}{%- assign typ_badge = 'badge badge-type-arge' -%}
+    {%- endcase -%}
+
+    {%- assign prio_badge = 'badge badge-default' -%}
+    {%- case prio_label -%}
+      {%- when 'Kritisk' -%}{%- assign prio_badge = 'badge badge-prio-kritisk' -%}
+      {%- when 'Hög' -%}{%- assign prio_badge = 'badge badge-prio-hog' -%}
+      {%- when 'Normal' -%}{%- assign prio_badge = 'badge badge-prio-normal' -%}
+      {%- when 'Låg' -%}{%- assign prio_badge = 'badge badge-prio-lag' -%}
+    {%- endcase -%}
+
+    {%- assign status_badge = 'badge badge-default' -%}
+    {%- case status_label -%}
+      {%- when 'Registrerad' -%}{%- assign status_badge = 'badge badge-status-aktiv' -%}
+      {%- when 'Pågående' -%}{%- assign status_badge = 'badge badge-status-pagande' -%}
+      {%- when 'Slutförd' -%}{%- assign status_badge = 'badge badge-status-slutford' -%}
+      {%- when 'Makulerad' -%}{%- assign status_badge = 'badge badge-status-makulerad' -%}
+    {%- endcase -%}
+
+    {%- comment -%} Var i processen ärendet befinner sig, för stegvisaren {%- endcomment -%}
+    {%- assign is_cancelled = false -%}
+    {%- assign step_index = 1 -%}
+    {%- case status_label -%}
+      {%- when 'Registrerad' -%}{%- assign step_index = 1 -%}
+      {%- when 'Pågående' -%}{%- assign step_index = 2 -%}
+      {%- when 'Slutförd' -%}{%- assign step_index = 3 -%}
+      {%- when 'Makulerad' -%}{%- assign is_cancelled = true -%}
+    {%- endcase -%}
+
+    <!-- HEADER -->
+    <div class="detail-header">
+      <div class="detail-header-content">
+        <a href="/Ärende" class="detail-header-back">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+          </svg>
+          Tillbaka till Ärenden
+        </a>
+        <div class="detail-header-row">
+          <div class="detail-header-main">
+            <h1>{{ arende.cr5ee_name | default: 'Ärende' }}</h1>
+            {% if arende.cr5ee_arendeid %}
+            <div class="detail-header-id">
+              <span>Ärende-ID:</span>
+              <code>{{ arende.cr5ee_arendeid }}</code>
+            </div>
+            {% endif %}
+          </div>
+          <div class="detail-header-badges">
+            {% if typ_label %}<span class="{{ typ_badge }}">{{ typ_label }}</span>{% endif %}
+            {% if prio_label %}<span class="{{ prio_badge }}">{{ prio_label }}</span>{% endif %}
+            {% if status_label %}<span class="{{ status_badge }}">{{ status_label }}</span>{% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="detail-container">
+
+      <!-- Status - var i processen är ärendet -->
+      <div class="detail-card" style="margin-bottom: 20px;">
+        <div class="detail-card-header"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M8.5 0.5h-3c-0.55228 0 -1 0.447715 -1 1V2c0 0.55228 0.44772 1 1 1h3c0.55228 0 1 -0.44772 1 -1v-0.5c0 -0.552285 -0.44772 -1 -1 -1Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M9.75 1.5h1.5c0.2652 0 0.5196 0.10536 0.7071 0.29289 0.1875 0.18754 0.2929 0.44189 0.2929 0.70711v10c0 0.2652 -0.1054 0.5196 -0.2929 0.7071s-0.4419 0.2929 -0.7071 0.2929h-8.5c-0.26522 0 -0.51957 -0.1054 -0.70711 -0.2929 -0.18753 -0.1875 -0.29289 -0.4419 -0.29289 -0.7071v-10c0 -0.26522 0.10536 -0.51957 0.29289 -0.70711C2.23043 1.60536 2.48478 1.5 2.75 1.5h1.5" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m5 9 1.5 1 3 -4" stroke-width="1"></path></g></svg> Status</div>
+        <div class="detail-card-body">
+          {% if is_cancelled %}
+            <div class="alert alert-warning" style="margin:0;">
+              <span class="alert-icon"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m13.5 0.5 -13 13" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m0.5 0.5 13 13" stroke-width="1"></path></g></svg></span>
+              <div>
+                <div class="alert-title">Ärendet är makulerat</div>
+                <p style="margin:4px 0 0 0;">Det här ärendet har avbrutits och behandlas inte vidare.</p>
+              </div>
+            </div>
+          {% else %}
+            <div class="status-stepper">
+              <div class="stepper-step {% if step_index >= 1 %}is-done{% endif %} {% if step_index == 1 %}is-current{% endif %}">
+                <div class="stepper-dot">{% if step_index > 1 %}<svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M0.5 8.55005 3.23 12.06c0.09212 0.1197 0.21016 0.217 0.34525 0.2846 0.13509 0.0675 0.28373 0.1036 0.43475 0.1054 0.14859 0.0018 0.2957 -0.0297 0.43063 -0.0919 0.13492 -0.0623 0.25427 -0.1539 0.34937 -0.2681L13.5 1.55005" stroke-width="1"></path></g></svg>{% else %}1{% endif %}</div>
+                <div class="stepper-label">Registrerad</div>
+              </div>
+              <div class="stepper-line"></div>
+              <div class="stepper-step {% if step_index >= 2 %}is-done{% endif %} {% if step_index == 2 %}is-current{% endif %}">
+                <div class="stepper-dot">{% if step_index > 2 %}<svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M0.5 8.55005 3.23 12.06c0.09212 0.1197 0.21016 0.217 0.34525 0.2846 0.13509 0.0675 0.28373 0.1036 0.43475 0.1054 0.14859 0.0018 0.2957 -0.0297 0.43063 -0.0919 0.13492 -0.0623 0.25427 -0.1539 0.34937 -0.2681L13.5 1.55005" stroke-width="1"></path></g></svg>{% else %}2{% endif %}</div>
+                <div class="stepper-label">Pågående</div>
+              </div>
+              <div class="stepper-line"></div>
+              <div class="stepper-step {% if step_index >= 3 %}is-done{% endif %} {% if step_index == 3 %}is-current{% endif %}">
+                <div class="stepper-dot">{% if step_index >= 3 %}<svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M0.5 8.55005 3.23 12.06c0.09212 0.1197 0.21016 0.217 0.34525 0.2846 0.13509 0.0675 0.28373 0.1036 0.43475 0.1054 0.14859 0.0018 0.2957 -0.0297 0.43063 -0.0919 0.13492 -0.0623 0.25427 -0.1539 0.34937 -0.2681L13.5 1.55005" stroke-width="1"></path></g></svg>{% else %}3{% endif %}</div>
+                <div class="stepper-label">Slutförd</div>
+              </div>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="detail-grid">
+
+        <!-- LEFT COLUMN -->
+        <div>
+          <!-- Quick Info -->
+          <div class="detail-card" style="margin-bottom: 20px;">
+            <div class="detail-card-header"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M8.5 0.5h-3c-0.55228 0 -1 0.447715 -1 1V2c0 0.55228 0.44772 1 1 1h3c0.55228 0 1 -0.44772 1 -1v-0.5c0 -0.552285 -0.44772 -1 -1 -1Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M9.75 1.5h1.5c0.2652 0 0.5196 0.10536 0.7071 0.29289 0.1875 0.18754 0.2929 0.44189 0.2929 0.70711v10c0 0.2652 -0.1054 0.5196 -0.2929 0.7071s-0.4419 0.2929 -0.7071 0.2929h-8.5c-0.26522 0 -0.51957 -0.1054 -0.70711 -0.2929 -0.18753 -0.1875 -0.29289 -0.4419 -0.29289 -0.7071v-10c0 -0.26522 0.10536 -0.51957 0.29289 -0.70711C2.23043 1.60536 2.48478 1.5 2.75 1.5h1.5" stroke-width="1"></path></g></svg> Ärendeinformation</div>
+            <div class="detail-card-body">
+              <div class="info-grid">
+                <div class="info-item">
+                  <div class="info-label"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M1.5 2c-0.26522 0 -0.51957 0.10536 -0.707107 0.29289C0.605357 2.48043 0.5 2.73478 0.5 3v9.5c0 0.2652 0.105357 0.5196 0.292893 0.7071 0.187537 0.1875 0.441887 0.2929 0.707107 0.2929h11c0.2652 0 0.5196 -0.1054 0.7071 -0.2929s0.2929 -0.4419 0.2929 -0.7071V3c0 -0.26522 -0.1054 -0.51957 -0.2929 -0.70711C13.0196 2.10536 12.7652 2 12.5 2h-2" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M0.5 5.5h13" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M3.5 0.5v3" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M10.5 0.5v3" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M3.5 2h5" stroke-width="1"></path></g></svg> Skapad</div>
+                  <div class="info-value">{{ arende.createdon | default: '-' | date: 'yyyy-MM-dd HH:mm' }}</div>
+                </div>
+                <div class="info-item">
+                  <div class="info-label"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 8c1.38071 0 2.5 -1.11929 2.5 -2.5S8.38071 3 7 3 4.5 4.11929 4.5 5.5 5.61929 8 7 8Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M2.72998 11.9c0.44624 -0.7325 1.07341 -1.3379 1.82121 -1.7579 0.7478 -0.42012 1.59108 -0.64076 2.44879 -0.64076 0.85771 0 1.70099 0.22064 2.44879 0.64076 0.74783 0.42 1.37493 1.0254 1.82123 1.7579" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 13.5c3.5899 0 6.5 -2.9101 6.5 -6.5C13.5 3.41015 10.5899 0.5 7 0.5 3.41015 0.5 0.5 3.41015 0.5 7c0 3.5899 2.91015 6.5 6.5 6.5Z" stroke-width="1"></path></g></svg> Beställare</div>
+                  <div class="info-value">{{ bestallare_label | default: '-' }}</div>
+                </div>
+                <div class="info-item">
+                  <div class="info-label"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m5.23004 2.25 0.43 -1.11c0.07252 -0.187936 0.20011 -0.349589 0.36605 -0.463788C6.19204 0.562014 6.3886 0.500595 6.59004 0.5h0.82c0.20144 0.000595 0.39801 0.062014 0.56395 0.176212 0.16595 0.114199 0.29353 0.275852 0.36605 0.463788l0.43 1.11 1.45996 0.84 1.18 -0.18c0.1965 -0.02667 0.3965 0.00567 0.5746 0.09292 0.178 0.08725 0.3261 0.22546 0.4254 0.39708l0.4 0.7c0.1025 0.17435 0.1498 0.37568 0.1355 0.57742 -0.0143 0.20174 -0.0894 0.39441 -0.2155 0.55258l-0.73 0.93v1.68l0.75 0.93c0.1261 0.15817 0.2012 0.35084 0.2155 0.55258 0.0143 0.20174 -0.033 0.40307 -0.1355 0.57742l-0.4 0.7c-0.0993 0.1716 -0.2474 0.3098 -0.4254 0.3971 -0.1781 0.0872 -0.3781 0.1196 -0.5746 0.0929l-1.18 -0.18 -1.45996 0.84 -0.43 1.11c-0.07252 0.1879 -0.2001 0.3496 -0.36605 0.4638 -0.16594 0.1142 -0.36251 0.1756 -0.56395 0.1762h-0.84c-0.20144 -0.0006 -0.398 -0.062 -0.56395 -0.1762 -0.16594 -0.1142 -0.29353 -0.2759 -0.36605 -0.4638l-0.43 -1.11 -1.46 -0.84 -1.18 0.18c-0.19648 0.0267 -0.39646 -0.0057 -0.57452 -0.0929 -0.17805 -0.0873 -0.32615 -0.2255 -0.42548 -0.3971l-0.4 -0.7c-0.1025 -0.17435 -0.14972 -0.37568 -0.13544 -0.57742 0.01428 -0.20174 0.0894 -0.39441 0.21544 -0.55258l0.73 -0.93V6.16l-0.75 -0.93c-0.12604 -0.15817 -0.20116 -0.35084 -0.21544 -0.55258 -0.01428 -0.20174 0.03294 -0.40307 0.13544 -0.57742l0.4 -0.7c0.09933 -0.17162 0.24743 -0.30983 0.42548 -0.39708 0.17806 -0.08725 0.37804 -0.11959 0.57452 -0.09292l1.18 0.18 1.48 -0.84Zm-0.23 4.75c0 0.39556 0.1173 0.78224 0.33706 1.11114 0.21977 0.3289 0.53212 0.58524 0.89757 0.73662 0.36546 0.15137 0.76759 0.19098 1.15555 0.11381 0.38796 -0.07717 0.74433 -0.26765 1.02404 -0.54736 0.2797 -0.2797 0.47018 -0.63607 0.54735 -1.02403 0.07717 -0.38796 0.03757 -0.79009 -0.11381 -1.15555 -0.15137 -0.36545 -0.40772 -0.67781 -0.73662 -0.89757C7.78228 5.1173 7.3956 5 7.00004 5c-0.53043 0 -1.03914 0.21071 -1.41421 0.58579 -0.37507 0.37507 -0.58579 0.88378 -0.58579 1.41421v0Z" stroke-width="1"></path></g></svg> Gällande</div>
+                  <div class="info-value">{{ gallande_label | default: '-' }}</div>
+                </div>
+                <div class="info-item">
+                  <div class="info-label"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M8.5 0.5h-3c-0.55228 0 -1 0.447715 -1 1V2c0 0.55228 0.44772 1 1 1h3c0.55228 0 1 -0.44772 1 -1v-0.5c0 -0.552285 -0.44772 -1 -1 -1Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M9.75 1.5h1.5c0.2652 0 0.5196 0.10536 0.7071 0.29289 0.1875 0.18754 0.2929 0.44189 0.2929 0.70711v10c0 0.2652 -0.1054 0.5196 -0.2929 0.7071s-0.4419 0.2929 -0.7071 0.2929h-8.5c-0.26522 0 -0.51957 -0.1054 -0.70711 -0.2929 -0.18753 -0.1875 -0.29289 -0.4419 -0.29289 -0.7071v-10c0 -0.26522 0.10536 -0.51957 0.29289 -0.70711C2.23043 1.60536 2.48478 1.5 2.75 1.5h1.5" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m5 9 1.5 1 3 -4" stroke-width="1"></path></g></svg> Status</div>
+                  <div class="info-value">{{ status_label | default: '-' }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Description -->
+          {% if arende.cr5ee_beskrivning %}
+          <div class="detail-card" style="margin-bottom: 20px;">
+            <div class="detail-card-header"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M0.5 1h13" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M0.5 4h10" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M0.5 7h7" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M0.5 13h13" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M0.5 10h10" stroke-width="1"></path></g></svg> Beskrivning</div>
+            <div class="detail-card-body">
+              <div class="content-body">{{ arende.cr5ee_beskrivning }}</div>
+            </div>
+          </div>
+          {% endif %}
+
+          <!-- Implementation -->
+          {% if arende.cr5ee_genomforande %}
+          <div class="detail-card" style="margin-bottom: 20px;">
+            <div class="detail-card-header"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M13.4096 3.59643c-0.0193 -0.10479 -0.0604 -0.20435 -0.1207 -0.29222 -0.0603 -0.08786 -0.1384 -0.16206 -0.2293 -0.21778l-2 2c-0.0933 0.09678 -0.2051 0.17377 -0.3288 0.22635 -0.1237 0.05258 -0.2568 0.07968 -0.3912 0.07968 -0.1344 0 -0.2674 -0.0271 -0.39114 -0.07968 -0.12371 -0.05258 -0.23555 -0.12957 -0.32883 -0.22635l-0.76 -0.68c-0.18323 -0.18693 -0.28586 -0.43825 -0.28586 -0.7s0.10263 -0.51307 0.28586 -0.7l1.99997 -2c-0.0436 -0.102462 -0.1092 -0.194088 -0.1921 -0.268394 -0.083 -0.074305 -0.1812 -0.129475 -0.2879 -0.161605 -0.6978 -0.13916 -1.42068 -0.079592 -2.08631 0.171923 -0.66563 0.251515 -1.24727 0.684866 -1.6787 1.250726s-0.69531 1.24149 -0.7616 1.94996c-0.0621 0.66366 0.05153 1.33116 0.32834 1.9358L0.814623 11.2515C0.418454 11.6477 0.425024 12.292 0.82919 12.68l0.56078 0.5384c0.39114 0.3755 1.01029 0.3709 1.39578 -0.0105l5.42833 -5.36951c0.58712 0.24247 1.22666 0.3347 1.86042 0.26676 0.7007 -0.07512 1.3669 -0.34313 1.9244 -0.77423 0.5576 -0.43111 0.9846 -1.0084 1.2336 -1.6677 0.2491 -0.65929 0.3104 -1.37474 0.1771 -2.06679Z" stroke-width="1"></path></g></svg> Genomförande</div>
+            <div class="detail-card-body">
+              <div class="content-body">{{ arende.cr5ee_genomforande }}</div>
+            </div>
+          </div>
+          {% endif %}
+
+          {%- comment -%}
+          Bilagor kopplade till ärendet - bifogas via filväljaren på
+          Ärende-sidans skapa-formulär. Lagras som annotation (Note) kopplad
+          till ärendet, samma mönster som kommentarbilagorna nedan.
+          {%- endcomment -%}
+          {% fetchxml caseAttachmentSet %}
+          <fetch version="1.0" mapping="logical" distinct="false">
+            <entity name="annotation">
+              <attribute name="filename" />
+              <attribute name="mimetype" />
+              <attribute name="documentbody" />
+              <order attribute="createdon" descending="false" />
+              <filter type="and">
+                <condition attribute="objectid" operator="eq" value="{{ id }}" />
+                <condition attribute="filename" operator="not-null" />
+              </filter>
+            </entity>
+          </fetch>
+          {% endfetchxml %}
+          {% assign caseAttachments = caseAttachmentSet.results.entities %}
+          {% if caseAttachments and caseAttachments.size > 0 %}
+          <div class="detail-card" style="margin-bottom: 20px;">
+            <div class="detail-card-header"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m12.8581 6.7867 -5.87959 5.929c-0.22813 0.2324 -0.50031 0.4171 -0.80062 0.5431 -0.30031 0.1261 -0.62274 0.191 -0.94843 0.191 -0.3257 0 -0.64812 -0.0649 -0.94844 -0.191 -0.30031 -0.126 -0.57249 -0.3107 -0.80061 -0.5431l-1.75894 -1.7886c-0.46046 -0.4677 -0.71854 -1.09766 -0.71854 -1.75398 0 -0.65631 0.25808 -1.28631 0.71854 -1.75399L7.98644 1.1344c0.18372 -0.185239 0.40231 -0.332266 0.64314 -0.432602 0.24084 -0.100335 0.49915 -0.151993 0.76005 -0.151993s0.51922 0.051658 0.76007 0.151993c0.2408 0.100336 0.4594 0.247363 0.6431 0.432602l0.7016 0.7016c0.1853 0.18372 0.3323 0.40231 0.4326 0.64314 0.1004 0.24083 0.152 0.49915 0.152 0.76005s-0.0516 0.51922 -0.152 0.76005c-0.1003 0.24084 -0.2473 0.45942 -0.4326 0.64314L5.94094 10.2156c-0.09187 0.0927 -0.20116 0.1662 -0.32158 0.2163 -0.12041 0.0502 -0.24957 0.076 -0.38002 0.076 -0.13045 0 -0.25961 -0.0258 -0.38003 -0.076 -0.12041 -0.0501 -0.22971 -0.1236 -0.32157 -0.2163l-0.34586 -0.3557c-0.09262 -0.09187 -0.16613 -0.20116 -0.2163 -0.32158 -0.05016 -0.12041 -0.07599 -0.24957 -0.07599 -0.38002 0 -0.13045 0.02583 -0.25961 0.07599 -0.38003 0.05017 -0.12041 0.12368 -0.22971 0.2163 -0.32157l3.72539 -3.69574" stroke-width="1"></path></g></svg> Bilagor ({{ caseAttachments.size }})</div>
+            <div class="detail-card-body">
+              <div class="case-attachments">
+                {% for att in caseAttachments %}
+                  {% if att.mimetype contains 'image' %}
+                  <div class="case-attachment">
+                    <img class="case-attachment-thumb" src="data:{{ att.mimetype }};base64,{{ att.documentbody }}" alt="{{ att.filename | escape }}" data-lightbox="true" />
+                    <div class="case-attachment-name" title="{{ att.filename | escape }}">{{ att.filename | escape }}</div>
+                  </div>
+                  {% else %}
+                  {%- assign att_ext = '' -%}
+                  {%- if att.filename contains '.' -%}{%- assign att_ext = att.filename | split: '.' | last | upcase -%}{%- endif -%}
+                  <a class="case-attachment" href="data:{{ att.mimetype }};base64,{{ att.documentbody }}" download="{{ att.filename | escape }}" title="Ladda ner {{ att.filename | escape }}">
+                    <div class="case-attachment-icon"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M12.5 12.5c0 0.2652 -0.1054 0.5196 -0.2929 0.7071s-0.4419 0.2929 -0.7071 0.2929h-9c-0.26522 0 -0.51957 -0.1054 -0.70711 -0.2929C1.60536 13.0196 1.5 12.7652 1.5 12.5v-11c0 -0.26522 0.10536 -0.51957 0.29289 -0.707107C1.98043 0.605357 2.23478 0.5 2.5 0.5H9L12.5 4v8.5Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m9 8 -2 2 -2 -2" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m7 10 0 -5.5" stroke-width="1"></path></g></svg>{% if att_ext != '' and att_ext.size <= 5 %}<span class="case-attachment-ext">{{ att_ext | escape }}</span>{% endif %}</div>
+                    <div class="case-attachment-name" title="{{ att.filename | escape }}">{{ att.filename | escape }}</div>
+                  </a>
+                  {% endif %}
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+          {% endif %}
+
+          {%- comment -%} Kommentarer/uppföljning - hämtas här (innan div:en) så de kan renderas som HTML direkt av servern nedan. {%- endcomment -%}
+          {% fetchxml commentsSet %}
+          <fetch version="1.0" mapping="logical" distinct="false">
+            <entity name="cr5ee_arende_kommentar">
+              <attribute name="cr5ee_text" />
+              <attribute name="createdon" />
+              <attribute name="cr5ee_arende" />
+              <attribute name="cr5ee_anvandare" />
+              <order attribute="createdon" descending="true" />
+              <filter type="and">
+                <condition attribute="cr5ee_arende" operator="eq" value="{{ id }}" />
+              </filter>
+            </entity>
+          </fetch>
+          {% endfetchxml %}
+          {% assign comments = commentsSet.results.entities %}
+
+          <!-- Comments Section - detta är där uppföljning/dialog sker -->
+          <div class="detail-card" id="commentsSection">
+            <div class="detail-card-header">
+              <svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M4.14472 12.8409C5.00659 13.263 5.97562 13.5 7 13.5c3.5899 0 6.5 -2.9101 6.5 -6.5C13.5 3.41015 10.5899 0.5 7 0.5 3.41015 0.5 0.5 3.41015 0.5 7c0 1.33261 0.40102 2.57155 1.08896 3.6027m2.55576 2.2382L0.5 13.5l1.08896 -2.8973m2.55576 2.2382L4.15 12.84m-2.56104 -2.2373L1.59 10.6" stroke-width="1"></path></g></svg> Uppföljning <span id="commentCount">({{ comments.size | default: 0 }})</span>
+            </div>
+            <div class="detail-card-body">
+              <!-- Comment Form - eget formulär, skickas direkt via Web API (se JS längre ner).
+                   Inget entityform längre: det gav ett fält ("Ärende") som ibland syntes
+                   trots döljningsförsöket, plus en klumpig omladdning+modal-lösning för
+                   bildbilagor. -->
+              {% if user.id %}
+              <div class="comment-form" id="commentFormWrapper">
+                <div class="comment-form-header">
+                  <span class="comment-user-avatar">{{ user.fullname | slice: 0, 1 | upcase }}</span>
+                  <span class="comment-user-name">{{ user.fullname }}</span>
+                </div>
+                <textarea id="newCommentText" class="form-control" rows="3" placeholder="Skriv en uppföljningskommentar..."></textarea>
+                <div class="comment-form-footer">
+                  <label class="btn-attach-file" for="newCommentImage"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m12.8581 6.7867 -5.87959 5.929c-0.22813 0.2324 -0.50031 0.4171 -0.80062 0.5431 -0.30031 0.1261 -0.62274 0.191 -0.94843 0.191 -0.3257 0 -0.64812 -0.0649 -0.94844 -0.191 -0.30031 -0.126 -0.57249 -0.3107 -0.80061 -0.5431l-1.75894 -1.7886c-0.46046 -0.4677 -0.71854 -1.09766 -0.71854 -1.75398 0 -0.65631 0.25808 -1.28631 0.71854 -1.75399L7.98644 1.1344c0.18372 -0.185239 0.40231 -0.332266 0.64314 -0.432602 0.24084 -0.100335 0.49915 -0.151993 0.76005 -0.151993s0.51922 0.051658 0.76007 0.151993c0.2408 0.100336 0.4594 0.247363 0.6431 0.432602l0.7016 0.7016c0.1853 0.18372 0.3323 0.40231 0.4326 0.64314 0.1004 0.24083 0.152 0.49915 0.152 0.76005s-0.0516 0.51922 -0.152 0.76005c-0.1003 0.24084 -0.2473 0.45942 -0.4326 0.64314L5.94094 10.2156c-0.09187 0.0927 -0.20116 0.1662 -0.32158 0.2163 -0.12041 0.0502 -0.24957 0.076 -0.38002 0.076 -0.13045 0 -0.25961 -0.0258 -0.38003 -0.076 -0.12041 -0.0501 -0.22971 -0.1236 -0.32157 -0.2163l-0.34586 -0.3557c-0.09262 -0.09187 -0.16613 -0.20116 -0.2163 -0.32158 -0.05016 -0.12041 -0.07599 -0.24957 -0.07599 -0.38002 0 -0.13045 0.02583 -0.25961 0.07599 -0.38003 0.05017 -0.12041 0.12368 -0.22971 0.2163 -0.32157l3.72539 -3.69574" stroke-width="1"></path></g></svg> <span id="newCommentImageLabel">Bifoga fil</span></label>
+                  <input type="file" id="newCommentImage" hidden />
+                  <button type="button" class="btn-comment-submit" id="btnSubmitComment">Skicka</button>
+                </div>
+                <div id="commentFormMessage" style="margin-top:8px;font-size:12px;"></div>
+              </div>
+              {% else %}
+              <div class="comment-login-prompt">
+                <a href="{{ website.sign_in_url_substitution }}">Logga in</a> för att skriva en uppföljningskommentar
+              </div>
+              {% endif %}
+
+              <!-- Comments List - renderas direkt som HTML av servern (inte via JS), så
+                   radbrytningar i kommentartexten aldrig kan krascha ett skript. -->
+              <div id="commentsList" class="comments-list">
+                {% if comments and comments.size > 0 %}
+                  {% for comment in comments %}
+                    {%- assign comment_author = 'Okänd' -%}
+                    {%- if comment.cr5ee_anvandare and comment.cr5ee_anvandare.Name -%}{%- assign comment_author = comment.cr5ee_anvandare.Name -%}{%- endif -%}
+                    <div class="comment-item">
+                      <div class="comment-avatar">{{ comment_author | slice: 0, 1 | upcase }}</div>
+                      <div class="comment-content">
+                        <div class="comment-header">
+                          <span class="comment-author">{{ comment_author | escape }}</span>
+                          <span class="comment-date">{{ comment.createdon | date: 'yyyy-MM-dd HH:mm' }}</span>
+                        </div>
+                        <div class="comment-text">{{ comment.cr5ee_text | escape }}</div>
+                        {%- comment -%}
+                        Bifogad fil/bild - lagras som en annotation (Note) kopplad till
+                        kommentaren. documentbody är en vanlig base64-textsträng som
+                        FetchXML läser direkt, ingen separat nedladdnings-URL behövs
+                        (till skillnad från Fil-kolumner, vars $value-nedladdning visade
+                        sig vara blockerad av Power Pages klient-API rakt av).
+                        {%- endcomment -%}
+                        {% fetchxml commentAttachmentSet %}
+                        <fetch version="1.0" mapping="logical" distinct="false" top="1">
+                          <entity name="annotation">
+                            <attribute name="filename" />
+                            <attribute name="mimetype" />
+                            <attribute name="documentbody" />
+                            <filter type="and">
+                              <condition attribute="objectid" operator="eq" value="{{ comment.cr5ee_arende_kommentarid }}" />
+                            </filter>
+                          </entity>
+                        </fetch>
+                        {% endfetchxml %}
+                        {% assign commentAttachmentItems = commentAttachmentSet.results.entities %}
+                        {% if commentAttachmentItems and commentAttachmentItems.size > 0 %}
+                          {% assign commentAttachment = commentAttachmentItems.first %}
+                          {% if commentAttachment.mimetype contains 'image' %}
+                          <img class="comment-image" src="data:{{ commentAttachment.mimetype }};base64,{{ commentAttachment.documentbody }}" alt="{{ commentAttachment.filename | escape }}" data-lightbox="true" />
+                          {% else %}
+                          <a class="comment-file-link" href="data:{{ commentAttachment.mimetype }};base64,{{ commentAttachment.documentbody }}" download="{{ commentAttachment.filename | escape }}"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m12.8581 6.7867 -5.87959 5.929c-0.22813 0.2324 -0.50031 0.4171 -0.80062 0.5431 -0.30031 0.1261 -0.62274 0.191 -0.94843 0.191 -0.3257 0 -0.64812 -0.0649 -0.94844 -0.191 -0.30031 -0.126 -0.57249 -0.3107 -0.80061 -0.5431l-1.75894 -1.7886c-0.46046 -0.4677 -0.71854 -1.09766 -0.71854 -1.75398 0 -0.65631 0.25808 -1.28631 0.71854 -1.75399L7.98644 1.1344c0.18372 -0.185239 0.40231 -0.332266 0.64314 -0.432602 0.24084 -0.100335 0.49915 -0.151993 0.76005 -0.151993s0.51922 0.051658 0.76007 0.151993c0.2408 0.100336 0.4594 0.247363 0.6431 0.432602l0.7016 0.7016c0.1853 0.18372 0.3323 0.40231 0.4326 0.64314 0.1004 0.24083 0.152 0.49915 0.152 0.76005s-0.0516 0.51922 -0.152 0.76005c-0.1003 0.24084 -0.2473 0.45942 -0.4326 0.64314L5.94094 10.2156c-0.09187 0.0927 -0.20116 0.1662 -0.32158 0.2163 -0.12041 0.0502 -0.24957 0.076 -0.38002 0.076 -0.13045 0 -0.25961 -0.0258 -0.38003 -0.076 -0.12041 -0.0501 -0.22971 -0.1236 -0.32157 -0.2163l-0.34586 -0.3557c-0.09262 -0.09187 -0.16613 -0.20116 -0.2163 -0.32158 -0.05016 -0.12041 -0.07599 -0.24957 -0.07599 -0.38002 0 -0.13045 0.02583 -0.25961 0.07599 -0.38003 0.05017 -0.12041 0.12368 -0.22971 0.2163 -0.32157l3.72539 -3.69574" stroke-width="1"></path></g></svg> {{ commentAttachment.filename | escape }}</a>
+                          {% endif %}
+                        {% endif %}
+                      </div>
+                    </div>
+                  {% endfor %}
+                {% else %}
+                  <div class="comment-empty" id="commentEmpty">
+                    <p>Inga kommentarer ännu. Skriv en kommentar om du vill följa upp eller fråga något om ärendet.</p>
+                  </div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT SIDEBAR -->
+        <div>
+          <!-- Timeline -->
+          <div class="detail-card" style="margin-bottom: 20px;">
+            <div class="detail-card-header"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 11c2.20914 0 4 -1.79086 4 -4S9.20914 3 7 3 3 4.79086 3 7s1.79086 4 4 4Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 5.5V7h1.5" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M12.5 0.5h-11c-0.552285 0 -1 0.447715 -1 1v11c0 0.5523 0.447715 1 1 1h11c0.5523 0 1 -0.4477 1 -1v-11c0 -0.552285 -0.4477 -1 -1 -1Z" stroke-width="1"></path></g></svg> Historik</div>
+            <div class="detail-card-body">
+              <div class="timeline">
+                <div class="timeline-item">
+                  <div class="timeline-dot"></div>
+                  <div class="timeline-date">{{ arende.createdon | default: '-' | date: 'yyyy-MM-dd HH:mm' }}</div>
+                  <div class="timeline-text">Ärendet skapades{% if bestallare_label %} av <strong>{{ bestallare_label }}</strong>{% endif %}</div>
+                </div>
+                {% if arende.cr5ee_accepterades %}
+                <div class="timeline-item">
+                  <div class="timeline-dot"></div>
+                  <div class="timeline-date">{{ arende.cr5ee_accepterades | date: 'yyyy-MM-dd HH:mm' }}</div>
+                  <div class="timeline-text">Ärendet accepterades</div>
+                </div>
+                {% endif %}
+                {% if arende.cr5ee_slutfordes %}
+                <div class="timeline-item">
+                  <div class="timeline-dot"></div>
+                  <div class="timeline-date">{{ arende.cr5ee_slutfordes | date: 'yyyy-MM-dd HH:mm' }}</div>
+                  <div class="timeline-text">Ärendet slutfördes</div>
+                </div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="detail-card">
+            <div class="detail-card-header"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 13.5c3.5899 0 6.5 -2.9101 6.5 -6.5C13.5 3.41015 10.5899 0.5 7 0.5 3.41015 0.5 0.5 3.41015 0.5 7c0 3.5899 2.91015 6.5 6.5 6.5Z" stroke-width="1"></path><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M4 7.25c-0.13807 0 -0.25 -0.11193 -0.25 -0.25s0.11193 -0.25 0.25 -0.25" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M4 7.25c0.13807 0 0.25 -0.11193 0.25 -0.25s-0.11193 -0.25 -0.25 -0.25" stroke-width="1"></path></g><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 7.25c-0.13807 0 -0.25 -0.11193 -0.25 -0.25s0.11193 -0.25 0.25 -0.25" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 7.25c0.13807 0 0.25 -0.11193 0.25 -0.25s-0.11193 -0.25 -0.25 -0.25" stroke-width="1"></path></g><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M10 7.25c-0.13807 0 -0.25 -0.11193 -0.25 -0.25s0.11193 -0.25 0.25 -0.25" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M10 7.25c0.1381 0 0.25 -0.11193 0.25 -0.25s-0.1119 -0.25 -0.25 -0.25" stroke-width="1"></path></g></g></svg> Åtgärder</div>
+            <div class="detail-card-body">
+              <div class="btn-group" style="flex-direction: column;">
+                <a href="/Ärende" class="btn btn-primary"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M4.75 0.5 2.25 3l2.5 2.5" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M1.75 8.25c0 1.03835 0.30791 2.0534 0.88478 2.9167 0.57688 0.8634 1.39682 1.5363 2.35613 1.9337 0.95931 0.3973 2.01491 0.5013 3.03331 0.2987 1.0184 -0.2025 1.95387 -0.7026 2.68808 -1.4368 0.7342 -0.7342 1.2343 -1.6697 1.4368 -2.68808 0.2026 -1.0184 0.0986 -2.074 -0.2987 -3.03331 -0.3974 -0.95931 -1.0703 -1.77925 -1.93366 -2.35613C9.05339 3.30791 8.03835 3 7 3H2.25" stroke-width="1"></path></g></svg> Tillbaka till listan</a>
+                {% if arende.cr5ee_arendeid %}
+                <button type="button" onclick="navigator.clipboard.writeText('{{ arende.cr5ee_arendeid }}'); var b=this; b.querySelector('.copy-idle').hidden=true; b.querySelector('.copy-done').hidden=false; setTimeout(function(){ b.querySelector('.copy-idle').hidden=false; b.querySelector('.copy-done').hidden=true; }, 1500);" class="btn btn-secondary">
+                  <span class="copy-idle"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M8.5 0.5h-3c-0.55228 0 -1 0.447715 -1 1V2c0 0.55228 0.44772 1 1 1h3c0.55228 0 1 -0.44772 1 -1v-0.5c0 -0.552285 -0.44772 -1 -1 -1Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M9.75 1.5h1.5c0.2652 0 0.5196 0.10536 0.7071 0.29289 0.1875 0.18754 0.2929 0.44189 0.2929 0.70711v10c0 0.2652 -0.1054 0.5196 -0.2929 0.7071s-0.4419 0.2929 -0.7071 0.2929h-8.5c-0.26522 0 -0.51957 -0.1054 -0.70711 -0.2929 -0.18753 -0.1875 -0.29289 -0.4419 -0.29289 -0.7071v-10c0 -0.26522 0.10536 -0.51957 0.29289 -0.70711C2.23043 1.60536 2.48478 1.5 2.75 1.5h1.5" stroke-width="1"></path></g></svg> Kopiera ärende-ID</span>
+                  <span class="copy-done" hidden><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M0.5 8.55005 3.23 12.06c0.09212 0.1197 0.21016 0.217 0.34525 0.2846 0.13509 0.0675 0.28373 0.1036 0.43475 0.1054 0.14859 0.0018 0.2957 -0.0297 0.43063 -0.0919 0.13492 -0.0623 0.25427 -0.1539 0.34937 -0.2681L13.5 1.55005" stroke-width="1"></path></g></svg> Kopierat!</span>
+                </button>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  {% else %}
+    <!-- No results -->
+    <div class="detail-header">
+      <div class="detail-header-content">
+        <a href="/Ärende" class="detail-header-back">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+          </svg>
+          Tillbaka till Ärenden
+        </a>
+        <div class="alert alert-error">
+          <span class="alert-icon"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M9.79289 13.2071c-0.18753 0.1875 -0.44189 0.2929 -0.7071 0.2929H4.91421c-0.26521 0 -0.51957 -0.1054 -0.7071 -0.2929L0.792893 9.79289C0.605357 9.60536 0.5 9.351 0.5 9.08579V4.91421c0 -0.26521 0.105357 -0.51957 0.292893 -0.7071L4.20711 0.792893C4.39464 0.605357 4.649 0.5 4.91421 0.5h4.17158c0.26521 0 0.51957 0.105357 0.7071 0.292893L13.2071 4.20711c0.1875 0.18753 0.2929 0.44189 0.2929 0.7071v4.17158c0 0.26521 -0.1054 0.51957 -0.2929 0.7071L9.79289 13.2071Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 4v3.25" stroke-width="1"></path><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 10c-0.13807 0 -0.25 -0.11193 -0.25 -0.25s0.11193 -0.25 0.25 -0.25" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 10c0.13807 0 0.25 -0.11193 0.25 -0.25S7.13807 9.5 7 9.5" stroke-width="1"></path></g></g></svg></span>
+          <div>
+            <div class="alert-title">Ingen träff</div>
+            <p style="margin:8px 0 0 0;">Hittade ingen post med id <span class="alert-code">{{ id }}</span></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+
+{% endif %}
+
+</div>
+
+{%- comment -%}
+Bildförstoring för kommentarbilder. Ett klick på en <a href="data:..."
+target="_blank"> öppnas inte i moderna webbläsare (Chrome m.fl. blockerar
+navigering till data:-URI:er i en ny flik som ett skydd mot nätfiske) - därför
+visas bilden istället i en overlay här på sidan, utan någon navigering alls.
+{%- endcomment -%}
+<div class="image-lightbox-overlay" id="imageLightbox">
+  <img id="imageLightboxImg" src="" alt="" />
+</div>
+
+<script>
+  var currentCaseId = "{{ id | escape }}";
+
+  // Dataverse döljer ofta den faktiska orsaken bakom en generisk
+  // "Ett fel inträffade i Common Data Service" - den mer specifika texten
+  // (ogiltigt fältnamn, obligatoriskt fält saknas, etc.) ligger i regel i
+  // error.innererror.message istället.
+  function extractErrorMessage(xhr) {
+    try {
+      var err = JSON.parse(xhr.responseText).error;
+      if (err.innererror && err.innererror.message) return err.innererror.message;
+      return err.message;
+    } catch (e) {
+      return 'Okänt fel';
+    }
+  }
+
+  function showCommentFormMessage(msg, type) {
+    var el = document.getElementById('commentFormMessage');
+    if (!el) return;
+    el.style.color = type === 'error' ? '#de350b' : (type === 'success' ? '#00875a' : '#5e6c84');
+    el.textContent = msg;
+  }
+
+  // Skapar en ny cr5ee_arende_kommentar direkt via Web API - inget entityform,
+  // ingen sidomladdning, inget "Ärende"-fält som kan visas av misstag.
+  //
+  // Entitetsnamnet cr5ee_arende_kommentars och Webapi/-inställningarna är
+  // bekräftade (samma felsökning som gjordes för cr5ee_arenden ->
+  // cr5ee_arendens). Bindningen "cr5ee_Arende@odata.bind" (stor bokstav)
+  // gav "undeclared property" från Dataverse - fixat till gemener
+  // ("cr5ee_arende@odata.bind"), som matchar attributnamnet i FetchXML.
+  function submitNewComment() {
+    var textEl = document.getElementById('newCommentText');
+    var fileEl = document.getElementById('newCommentImage');
+    var text = textEl.value.trim();
+
+    if (!text) {
+      showCommentFormMessage('Skriv något innan du skickar.', 'error');
+      return;
+    }
+    if (!currentCaseId) {
+      showCommentFormMessage('Inget ärende valt.', 'error');
+      return;
+    }
+
+    var btn = document.getElementById('btnSubmitComment');
+    if (btn) btn.disabled = true;
+    showCommentFormMessage('Skickar...', 'info');
+
+    webapi.safeAjax({
+      type: 'POST',
+      url: '/_api/cr5ee_arende_kommentars',
+      contentType: 'application/json',
+      data: JSON.stringify({
+        'cr5ee_text': text,
+        'cr5ee_arende@odata.bind': '/cr5ee_arendens(' + currentCaseId + ')',
+        'cr5ee_anvandare@odata.bind': '/contacts({{ user.id }})'
+      }),
+      success: function(data, status, xhr) {
+        var entityIdHeader = xhr.getResponseHeader('OData-EntityId') || xhr.getResponseHeader('odata-entityid') || '';
+        var match = entityIdHeader.match(/\(([0-9a-fA-F-]{36})\)/);
+        var newCommentId = match ? match[1] : null;
+        var file = fileEl && fileEl.files[0];
+
+        if (file && !newCommentId) {
+          console.warn('Kunde inte läsa ut ID:t för den nya kommentaren (OData-EntityId-header saknades/kunde inte tolkas) - bilden bifogas inte.', entityIdHeader);
+          showCommentFormMessage('Kommentaren sparades, men bilden kunde inte bifogas (hittade inte kommentarens ID).', 'error');
+          setTimeout(finishCommentSubmit, 2500);
+          return;
+        }
+
+        if (newCommentId && file) {
+          uploadCommentImage(newCommentId, file, finishCommentSubmit);
+        } else {
+          finishCommentSubmit();
+        }
+      },
+      error: function(xhr) {
+        if (btn) btn.disabled = false;
+        var msg = extractErrorMessage(xhr);
+        console.error('API Error:', xhr.responseText);
+        showCommentFormMessage('Kunde inte skicka kommentaren: ' + msg, 'error');
+      }
+    });
+  }
+
+  // Sparar filen som en "annotation" (Note) kopplad till kommentaren via
+  // Dataverse standardmönster för polymorfa lookups:
+  // "<fält>_<målentitet>@odata.bind". documentbody är en vanlig base64-text-
+  // sträng - ingen $value-nedladdning behövs för att visa den igen (den
+  // vägen visade sig vara blockerad av Power Pages klient-API, oavsett
+  // behörighet/token/cookies). isdocument:true markerar posten som en riktig
+  // bilaga (annars syns den inte som en bilaga i Dataverse-gränssnittet).
+  function uploadCommentImage(commentId, file, callback) {
+    var reader = new FileReader();
+    reader.onload = function() {
+      var base64 = reader.result.split(',')[1];
+      webapi.safeAjax({
+        type: 'POST',
+        url: '/_api/annotations',
+        contentType: 'application/json',
+        data: JSON.stringify({
+          'objectid_cr5ee_arende_kommentar@odata.bind': '/cr5ee_arende_kommentars(' + commentId + ')',
+          'subject': 'Bifogad fil',
+          'filename': file.name,
+          'mimetype': file.type || 'application/octet-stream',
+          'documentbody': base64,
+          'isdocument': true
+        }),
+        success: function() { callback(); },
+        error: function(xhr) {
+          var msg = extractErrorMessage(xhr);
+          console.error('Kunde inte spara filen:', xhr.responseText);
+          showCommentFormMessage('Kommentaren sparades, men filen kunde inte bifogas: ' + msg, 'error');
+          setTimeout(callback, 2500);
+        }
+      });
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function finishCommentSubmit() {
+    showCommentFormMessage('Kommentaren har lagts till!', 'success');
+    setTimeout(function() {
+      window.location.reload();
+    }, 800);
+  }
+
+  function initImageLightbox() {
+    var overlay = document.getElementById('imageLightbox');
+    var overlayImg = document.getElementById('imageLightboxImg');
+    if (!overlay || !overlayImg) return;
+
+    document.querySelectorAll('.comment-image[data-lightbox], .case-attachment-thumb[data-lightbox]').forEach(function(img) {
+      img.addEventListener('click', function() {
+        overlayImg.src = img.src;
+        overlayImg.alt = img.alt;
+        overlay.classList.add('active');
+      });
+    });
+
+    function closeLightbox() {
+      overlay.classList.remove('active');
+      overlayImg.src = '';
+    }
+
+    overlay.addEventListener('click', closeLightbox);
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') closeLightbox();
+    });
+  }
+
+  // Initialize
+  document.addEventListener('DOMContentLoaded', function() {
+    initImageLightbox();
+
+    var btnSubmitComment = document.getElementById('btnSubmitComment');
+    var newCommentImage = document.getElementById('newCommentImage');
+    var newCommentImageLabel = document.getElementById('newCommentImageLabel');
+
+    if (newCommentImage) {
+      newCommentImage.addEventListener('change', function() {
+        var f = newCommentImage.files[0];
+        newCommentImageLabel.textContent = f ? f.name : 'Bifoga fil';
+      });
+    }
+
+    if (btnSubmitComment) {
+      btnSubmitComment.addEventListener('click', function() {
+        submitNewComment();
+      });
+    }
+  });
+</script>
+{% include 'Portal Web API Wrapper' %}

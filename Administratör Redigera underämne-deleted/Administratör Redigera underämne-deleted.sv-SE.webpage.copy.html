@@ -1,0 +1,47 @@
+{% if request.params['id'] | xml_escape %} {% assign topicid = request.params.id | xml_escape %} {% endif %}
+<script>
+  function updateSubtopic() {
+    // Get the fields
+    let topicTitle = $('#faq_topictitle').val();
+    let publishedStatus = $('#faq_publishedstatus').attr('value');
+    let parentTopicName = $('#faq_parenttopic').attr('value');
+
+    if (publishedStatus == '1') {
+      publishedStatus = true;
+    } else publishedStatus = false;
+
+    let dataObject = {
+      faq_topictitle: topicTitle,
+      faq_publishedstatus: publishedStatus,
+    };
+
+    if (parentTopicName) {
+      dataObject['faq_ParentTopic@odata.bind'] = `/faq_topics(${parentTopicName})`;
+    }
+
+    const patchUrl = '/_api/faq_topics({{topicid}})';
+    webapi.safeAjax({
+      type: 'PATCH',
+      url: patchUrl,
+      contentType: 'application/json',
+      data: JSON.stringify(dataObject),
+      success: function (res, status, xhr) {
+        //Redirect back to home
+        window.location.href = '/Admin-Topics';
+      },
+      error: function (res, status, xhr) {
+        console.log(res.responseText);
+      },
+    });
+  }
+</script>
+{% include 'Portal Web API Wrapper' -%}
+<div class="row sectionBlockLayout text-start" style="display: flex; flex-wrap: wrap; margin: 0px; min-height: auto; padding: 8px;">
+  <div class="container" style="padding: 0px; display: flex; flex-wrap: wrap;">
+    <h1 class="form-title">{{ snippets.SubtopicDetails }}</h1>
+    <div class="col-lg-12 columnBlockLayout" style="flex-grow: 1; display: flex; flex-direction: column; min-width: 300px; margin-top: 20px;">
+      <a href="/admin-topics" value="admin-topics" class="category-list-a"> <img id="img-back-breadcrumb" alt="sökväg tillbaka" src="/back-breadcrumb.png" />{{ snippets.BackToTopics }}</a>{% entityform name: 'Edit Subtopic' %}
+    </div>
+    <a href="/Admin-Topics" class="cancel">{{ snippets.Cancel }}</a>
+  </div>
+</div>

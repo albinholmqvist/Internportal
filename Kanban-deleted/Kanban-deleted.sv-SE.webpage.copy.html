@@ -1,0 +1,686 @@
+{% comment %}
+Kanban - Jira-liknande styrelayout för ärenden
+Med drag & drop för att ändra status
+{% endcomment %}
+
+{%- assign selectedSprint = request.params.sprint | default: '' -%}
+{%- assign selectedProject = request.params.project | default: '' -%}
+{%- assign includeDone = request.params.includeDone | default: '' -%}
+
+{% comment %}Hämta alla ärenden för Kanban{% endcomment %}
+{% fetchxml arendenSet %}
+<fetch version="1.0" mapping="logical" distinct="false">
+  <entity name="cr5ee_arenden">
+    <attribute name="cr5ee_arendenid" />
+    <attribute name="cr5ee_arendeid" />
+    <attribute name="cr5ee_name" />
+    <attribute name="createdon" />
+    <attribute name="cr5ee_prioritet" />
+    <attribute name="cr5ee_status" />
+    <attribute name="cr5ee_bestallare" />
+    <attribute name="cr5ee_tilldelad" />
+    <attribute name="cr5ee_typ" />
+    <attribute name="cr5ee_applikation" />
+    <attribute name="cr5ee_sprint" />
+    <attribute name="cr5ee_projekt" />
+    <order attribute="cr5ee_prioritet" descending="true" />
+  </entity>
+</fetch>
+{% endfetchxml %}
+
+{% assign entities = arendenSet.results.entities %}
+
+<style>
+  /* === KANBAN BOARD STYLES === */
+  :root {
+    --brand-primary: #E47203;
+    --brand-secondary: #f18e35;
+    --brand-dark: #333333;
+    --brand-teal: #33bdc6;
+    --gray-light: #DCDCDC;
+    --gray-bg: #f5f5f5;
+  }
+
+  .kanban-page {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--gray-bg);
+    min-height: calc(100vh - 120px);
+    padding: 20px;
+  }
+
+  /* Header */
+  .kanban-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .kanban-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .kanban-title h1 {
+    margin: 0;
+    font-size: 24px;
+    color: var(--brand-dark);
+  }
+
+  .kanban-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .kanban-select {
+    padding: 8px 32px 8px 12px;
+    border: 1px solid var(--gray-light);
+    border-radius: 6px;
+    font-size: 14px;
+    background: white;
+    cursor: pointer;
+  }
+
+  .kanban-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: var(--brand-primary);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s ease;
+  }
+
+  .kanban-btn:hover {
+    background: var(--brand-secondary);
+    color: white;
+    text-decoration: none;
+  }
+
+  /* Board */
+  .kanban-board {
+    display: flex;
+    gap: 20px;
+    overflow-x: auto;
+    padding-bottom: 20px;
+    min-height: 500px;
+  }
+
+  .kanban-column {
+    flex: 0 0 300px;
+    background: #ffffff;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 220px);
+  }
+
+  .kanban-column-header {
+    padding: 16px;
+    border-bottom: 1px solid var(--gray-light);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-radius: 12px 12px 0 0;
+  }
+
+  .kanban-column-header.öppna {
+    background: #eff6ff;
+    border-bottom-color: #bfdbfe;
+  }
+
+  .kanban-column-header.tilldelad {
+    background: #fef3c7;
+    border-bottom-color: #fde68a;
+  }
+
+  .kanban-column-header.pågående {
+    background: #f0fdfa;
+    border-bottom-color: #ccfbf1;
+  }
+
+  .kanban-column-header.klar {
+    background: #dcfce7;
+    border-bottom-color: #bbf7d0;
+  }
+
+  .kanban-column-title {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--brand-dark);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .kanban-count {
+    background: rgba(0,0,0,0.1);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 12px;
+  }
+
+  .kanban-column-body {
+    flex: 1;
+    padding: 12px;
+    overflow-y: auto;
+    background: #fafafa;
+  }
+
+  /* Cards */
+  .kanban-card {
+    background: white;
+    border: 1px solid var(--gray-light);
+    border-radius: 8px;
+    padding: 14px;
+    margin-bottom: 10px;
+    cursor: grab;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+
+  .kanban-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    transform: translateY(-2px);
+  }
+
+  .kanban-card.dragging {
+    opacity: 0.5;
+    cursor: grabbing;
+    transform: rotate(3deg);
+  }
+
+  .kanban-card-id {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--brand-primary);
+    margin-bottom: 6px;
+  }
+
+  .kanban-card-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--brand-dark);
+    margin-bottom: 10px;
+    line-height: 1.4;
+  }
+
+  .kanban-card-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  /* Priority badges */
+  .priority-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .priority-badge.kritisk {
+    background: #fee2e2;
+    color: #dc2626;
+  }
+
+  .priority-badge.hög {
+    background: #fef3c7;
+    color: #d97706;
+  }
+
+  .priority-badge.normal {
+    background: #dbeafe;
+    color: #2563eb;
+  }
+
+  .priority-badge.låg {
+    background: #d1fae5;
+    color: #059669;
+  }
+
+  /* Type badges */
+  .type-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+  }
+
+  .type-badge.system {
+    background: #ede9fe;
+    color: #7c3aed;
+  }
+
+  .type-badge.önskemål {
+    background: #fed7aa;
+    color: #ea580c;
+  }
+
+  /* Drop zone */
+  .kanban-column-body.drag-over {
+    background: #f0f9ff;
+    border: 2px dashed var(--brand-teal);
+    border-radius: 8px;
+  }
+
+  /* Empty state */
+  .kanban-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: #888;
+  }
+
+  .kanban-empty-icon {
+    font-size: 48px;
+    margin-bottom: 12px;
+    opacity: 0.5;
+  }
+
+  /* Loading */
+  .kanban-loading {
+    display: none;
+    text-align: center;
+    padding: 20px;
+    color: var(--brand-primary);
+    font-weight: 500;
+  }
+
+  .kanban-loading.show {
+    display: block;
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .kanban-board {
+      gap: 12px;
+    }
+
+    .kanban-column {
+      flex: 0 0 280px;
+    }
+
+    .kanban-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .kanban-controls {
+      width: 100%;
+      flex-wrap: wrap;
+    }
+  }
+
+  /* Drag and drop ghost */
+  .sortable-ghost {
+    opacity: 0.4;
+  }
+
+  .sortable-chosen {
+    box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+  }
+</style>
+
+<div class="kanban-page">
+  <!-- Header -->
+  <div class="kanban-header">
+    <div class="kanban-title">
+      <h1>📋 Kanban Board</h1>
+    </div>
+    <div class="kanban-controls">
+      <select class="kanban-select" id="sprintSelect">
+        <option value="">Alla Sprints</option>
+        {% comment %}Lägg till sprints här om de finns{% endcomment %}
+      </select>
+      <select class="kanban-select" id="projectSelect">
+        <option value="">Alla Projekt</option>
+        {% comment %}Lägg till projekt här{% endcomment %}
+      </select>
+      <a href="/Arende" class="kanban-btn">
+        ← Till lista
+      </a>
+    </div>
+  </div>
+
+  <!-- Loading indicator -->
+  <div class="kanban-loading" id="kanbanLoading">
+    Uppdaterar...
+  </div>
+
+  <!-- Board -->
+  <div class="kanban-board">
+    {% comment %}Öppna ärenden{% endcomment %}
+    <div class="kanban-column" data-status="öppna">
+      <div class="kanban-column-header öppna">
+        <span class="kanban-column-title">
+          ⚪ Öppna
+          <span class="kanban-count" data-status="öppna">0</span>
+        </span>
+      </div>
+      <div class="kanban-column-body" data-status="öppna" data-status-value="1">
+        {% for arende in entities %}
+          {%- assign status_label = arende['cr5ee_status@OData.Community.Display.V1.FormattedValue'] -%}
+          {%- if status_label == nil and arende.cr5ee_status and arende.cr5ee_status.Label -%}
+            {%- assign status_label = arende.cr5ee_status.Label -%}
+          {%- endif -%}
+          
+          {%- if status_label == 'Ny' or status_label == 'Öppen' or status_label == '' or status_label == nil -%}
+            {%- assign prio_label = arende['cr5ee_prioritet@OData.Community.Display.V1.FormattedValue'] -%}
+            {%- if prio_label == nil and arende.cr5ee_prioritet and arende.cr5ee_prioritet.Label -%}
+              {%- assign prio_label = arende.cr5ee_prioritet.Label -%}
+            {%- endif -%}
+            
+            {%- assign typ_label = arende['cr5ee_typ@OData.Community.Display.V1.FormattedValue'] -%}
+            
+            <div class="kanban-card" 
+                 draggable="true" 
+                 data-id="{{ arende.cr5ee_arendenid }}"
+                 data-status="öppna">
+              <div class="kanban-card-id">
+                {% if arende.cr5ee_arendeid %}{{ arende.cr5ee_arendeid }}{% else %}{{ arende.cr5ee_arendenid | slice: 0, 8 }}{% endif %}
+              </div>
+              <div class="kanban-card-title">
+                {{ arende.cr5ee_name | escape | truncate: 60 }}
+              </div>
+              <div class="kanban-card-meta">
+                {% if prio_label %}
+                  <span class="priority-badge {{ prio_label | downcase }}">{{ prio_label }}</span>
+                {% endif %}
+                {% if typ_label %}
+                  <span class="type-badge {{ typ_label | downcase }}">{{ typ_label }}</span>
+                {% endif %}
+              </div>
+            </div>
+          {%- endif -%}
+        {% endfor %}
+      </div>
+    </div>
+
+    {% comment %}Tilldelade ärenden{% endcomment %}
+    <div class="kanban-column" data-status="tilldelad">
+      <div class="kanban-column-header tilldelad">
+        <span class="kanban-column-title">
+          🟠 Tilldelad
+          <span class="kanban-count" data-status="tilldelad">0</span>
+        </span>
+      </div>
+      <div class="kanban-column-body" data-status="tilldelad" data-status-value="2">
+        {% for arende in entities %}
+          {%- assign status_label = arende['cr5ee_status@OData.Community.Display.V1.FormattedValue'] -%}
+          {%- if status_label == nil and arende.cr5ee_status and arende.cr5ee_status.Label -%}
+            {%- assign status_label = arende.cr5ee_status.Label -%}
+          {%- endif -%}
+          
+          {%- if status_label == 'Aktiv' or status_label == 'Tilldelad' -%}
+            {%- assign prio_label = arende['cr5ee_prioritet@OData.Community.Display.V1.FormattedValue'] -%}
+            {%- if prio_label == nil and arende.cr5ee_prioritet and arende.cr5ee_prioritet.Label -%}
+              {%- assign prio_label = arende.cr5ee_prioritet.Label -%}
+            {%- endif -%}
+            
+            {%- assign typ_label = arende['cr5ee_typ@OData.Community.Display.V1.FormattedValue'] -%}
+            
+            <div class="kanban-card" 
+                 draggable="true" 
+                 data-id="{{ arende.cr5ee_arendenid }}"
+                 data-status="tilldelad">
+              <div class="kanban-card-id">
+                {% if arende.cr5ee_arendeid %}{{ arende.cr5ee_arendeid }}{% else %}{{ arende.cr5ee_arendenid | slice: 0, 8 }}{% endif %}
+              </div>
+              <div class="kanban-card-title">
+                {{ arende.cr5ee_name | escape | truncate: 60 }}
+              </div>
+              <div class="kanban-card-meta">
+                {% if prio_label %}
+                  <span class="priority-badge {{ prio_label | downcase }}">{{ prio_label }}</span>
+                {% endif %}
+                {% if typ_label %}
+                  <span class="type-badge {{ typ_label | downcase }}">{{ typ_label }}</span>
+                {% endif %}
+              </div>
+            </div>
+          {%- endif -%}
+        {% endfor %}
+      </div>
+    </div>
+
+    {% comment %}Pågående ärenden{% endcomment %}
+    <div class="kanban-column" data-status="pågående">
+      <div class="kanban-column-header pågående">
+        <span class="kanban-column-title">
+          🔵 Pågående
+          <span class="kanban-count" data-status="pågående">0</span>
+        </span>
+      </div>
+      <div class="kanban-column-body" data-status="pågående" data-status-value="3">
+        {% for arende in entities %}
+          {%- assign status_label = arende['cr5ee_status@OData.Community.Display.V1.FormattedValue'] -%}
+          {%- if status_label == nil and arende.cr5ee_status and arende.cr5ee_status.Label -%}
+            {%- assign status_label = arende.cr5ee_status.Label -%}
+          {%- endif -%}
+          
+          {%- if status_label == 'Pågående' or status_label == 'Väntande' -%}
+            {%- assign prio_label = arende['cr5ee_prioritet@OData.Community.Display.V1.FormattedValue'] -%}
+            {%- if prio_label == nil and arende.cr5ee_prioritet and arende.cr5ee_prioritet.Label -%}
+              {%- assign prio_label = arende.cr5ee_prioritet.Label -%}
+            {%- endif -%}
+            
+            {%- assign typ_label = arende['cr5ee_typ@OData.Community.Display.V1.FormattedValue'] -%}
+            
+            <div class="kanban-card" 
+                 draggable="true" 
+                 data-id="{{ arende.cr5ee_arendenid }}"
+                 data-status="pågående">
+              <div class="kanban-card-id">
+                {% if arende.cr5ee_arendeid %}{{ arende.cr5ee_arendeid }}{% else %}{{ arende.cr5ee_arendenid | slice: 0, 8 }}{% endif %}
+              </div>
+              <div class="kanban-card-title">
+                {{ arende.cr5ee_name | escape | truncate: 60 }}
+              </div>
+              <div class="kanban-card-meta">
+                {% if prio_label %}
+                  <span class="priority-badge {{ prio_label | downcase }}">{{ prio_label }}</span>
+                {% endif %}
+                {% if typ_label %}
+                  <span class="type-badge {{ typ_label | downcase }}">{{ typ_label }}</span>
+                {% endif %}
+              </div>
+            </div>
+          {%- endif -%}
+        {% endfor %}
+      </div>
+    </div>
+
+    {% comment %}Klara ärenden{% endcomment %}
+    <div class="kanban-column" data-status="klar">
+      <div class="kanban-column-header klar">
+        <span class="kanban-column-title">
+          ✅ Klar
+          <span class="kanban-count" data-status="klar">0</span>
+        </span>
+      </div>
+      <div class="kanban-column-body" data-status="klar" data-status-value="5">
+        {% for arende in entities %}
+          {%- assign status_label = arende['cr5ee_status@OData.Community.Display.V1.FormattedValue'] -%}
+          {%- if status_label == nil and arende.cr5ee_status and arende.cr5ee_status.Label -%}
+            {%- assign status_label = arende.cr5ee_status.Label -%}
+          {%- endif -%}
+          
+          {%- if status_label == 'Klar' or status_label == 'Slutförd' -%}
+            {%- assign prio_label = arende['cr5ee_prioritet@OData.Community.Display.V1.FormattedValue'] -%}
+            {%- if prio_label == nil and arende.cr5ee_prioritet and arende.cr5ee_prioritet.Label -%}
+              {%- assign prio_label = arende.cr5ee_prioritet.Label -%}
+            {%- endif -%}
+            
+            {%- assign typ_label = arende['cr5ee_typ@OData.Community.Display.V1.FormattedValue'] -%}
+            
+            <div class="kanban-card" 
+                 draggable="true" 
+                 data-id="{{ arende.cr5ee_arendenid }}"
+                 data-status="klar">
+              <div class="kanban-card-id">
+                {% if arende.cr5ee_arendeid %}{{ arende.cr5ee_arendeid }}{% else %}{{ arende.cr5ee_arendenid | slice: 0, 8 }}{% endif %}
+              </div>
+              <div class="kanban-card-title">
+                {{ arende.cr5ee_name | escape | truncate: 60 }}
+              </div>
+              <div class="kanban-card-meta">
+                {% if prio_label %}
+                  <span class="priority-badge {{ prio_label | downcase }}">{{ prio_label }}</span>
+                {% endif %}
+                {% if typ_label %}
+                  <span class="type-badge {{ typ_label | downcase }}">{{ typ_label }}</span>
+                {% endif %}
+              </div>
+            </div>
+          {%- endif -%}
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function() {
+    // Räkna kort i varje kolumn
+    function updateCounts() {
+      var columns = document.querySelectorAll('.kanban-column-body');
+      columns.forEach(function(column) {
+        var status = column.getAttribute('data-status');
+        var cards = column.querySelectorAll('.kanban-card');
+        var countEl = document.querySelector('.kanban-count[data-status="' + status + '"]');
+        if (countEl) {
+          countEl.textContent = cards.length;
+        }
+      });
+    }
+
+    // Drag and drop
+    var draggedCard = null;
+    var columns = document.querySelectorAll('.kanban-column-body');
+
+    columns.forEach(function(column) {
+      // Drag start
+      column.addEventListener('dragstart', function(e) {
+        if (e.target.classList.contains('kanban-card')) {
+          draggedCard = e.target;
+          e.target.classList.add('dragging');
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', e.target.dataset.id);
+        }
+      });
+
+      // Drag end
+      column.addEventListener('dragend', function(e) {
+        if (e.target.classList.contains('kanban-card')) {
+          e.target.classList.remove('dragging');
+          draggedCard = null;
+          
+          // Ta bort drag-over från alla kolumner
+          columns.forEach(function(col) {
+            col.classList.remove('drag-over');
+          });
+        }
+      });
+
+      // Drag over
+      column.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        column.classList.add('drag-over');
+      });
+
+      // Drag leave
+      column.addEventListener('dragleave', function(e) {
+        column.classList.remove('drag-over');
+      });
+
+      // Drop
+      column.addEventListener('drop', function(e) {
+        e.preventDefault();
+        column.classList.remove('drag-over');
+
+        if (draggedCard) {
+          var cardId = draggedCard.dataset.id;
+          var newStatus = column.dataset.status;
+          var newStatusValue = column.dataset.statusValue;
+
+          // Flytta kortet
+          column.appendChild(draggedCard);
+          draggedCard.dataset.status = newStatus;
+
+          // Uppdatera räkningen
+          updateCounts();
+
+          // Skicka till API för att uppdatera status
+          updateCaseStatus(cardId, newStatusValue, newStatus);
+        }
+      });
+    });
+
+    // Uppdatera ärende-status via API
+    function updateCaseStatus(caseId, statusValue, statusLabel) {
+      var loadingEl = document.getElementById('kanbanLoading');
+      if (loadingEl) loadingEl.classList.add('show');
+
+      var apiUrl = '/_api/cr5ee_arenden(' + caseId + ')';
+      
+      var data = {
+        'cr5ee_status': parseInt(statusValue, 10)
+      };
+
+      fetch(apiUrl, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(data)
+      })
+      .then(function(response) {
+        if (loadingEl) loadingEl.classList.remove('show');
+        
+        if (response.ok) {
+          console.log('Status uppdaterad till: ' + statusLabel);
+        } else {
+          console.error('Fel vid uppdatering');
+          // Återställ kortet vid fel
+          location.reload();
+        }
+      })
+      .catch(function(error) {
+        if (loadingEl) loadingEl.classList.remove('show');
+        console.error('Fetch error:', error);
+        // Vid fel, ladda om sidan
+        location.reload();
+      });
+    }
+
+    // Klick på kort - gå till detaljer
+    document.addEventListener('click', function(e) {
+      var card = e.target.closest('.kanban-card');
+      if (card && !e.target.closest('.kanban-card-meta')) {
+        var cardId = card.dataset.id;
+        window.location.href = '/Ärendedetalj?id=' + cardId;
+      }
+    });
+
+    // Init
+    updateCounts();
+  })();
+</script>

@@ -1,0 +1,56 @@
+.cta-btn {
+  color: #fff;
+}
+
+.topic {
+  display: flex;
+  flex-direction: column;
+  margin-right: 7px;
+  margin-left: 7px;
+  margin-bottom: 14px;
+  justify-content: center;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.topicTitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+}
+
+@media (max-width: 600px) {
+  #topic-container-header {
+    margin-top: 1em;
+    margin-left: 0.5em;
+  }
+
+  .searchContainer {
+    font-size: 12px;
+  }
+
+  .header p {
+    padding: 0px 55px 0px 70px;
+    margin-top: -35px;
+  }
+
+  .header-container {
+    margin: 3% 4%;
+    border-radius: 12px;
+  }
+
+  .topic {
+    flex-direction: row !important;
+    justify-content: start;
+    min-height: 95px;
+  }
+
+  .topic img {
+    padding: 0em 2em 0 1em;
+    width: 100px;
+  }
+
+  .home-topArticles-container {
+    margin: 0 3em 112px;
+  }
+}

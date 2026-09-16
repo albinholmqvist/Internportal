@@ -1,0 +1,1637 @@
+{% comment %} Ärendehantering - Admin split-view Left: Table with all cases (no filter). Right: Case management for selected case. Utseendet är avstämt mot Ärende-sidans design (samma färgtokens, typsnitt och badge-stilar, se Ärende.sv-SE.customcss.css :root). Fixar jämfört med tidigare version: - PATCH-anropen mot /_api/ saknade __RequestVerificationToken och gick därför aldrig igenom (Power Pages avvisar annars skrivningar). Använder nu samma webapi.safeAjax-mönster som "Administratör Redigera ämne" m.fl. - PATCH-URL:en pekade dessutom på fel resurs: /_api/cr5ee_arenden(...) istället för rätt Web API-namn /_api/cr5ee_arendens(...) (med "s" på slutet - bekräftat via tabelldefinition.md, EntitySetName="cr5ee_arendens"). Det här var den riktiga anledningen till att spara/statusändring aldrig gick igenom. - Prioritetsvärdena i redigeringspanelen (1-4) matchade inte det verkliga optionsetet. Riktiga värden (dokumenterade i Ärende.sv-SE.webpage.copy.html): Kritisk=10, Hög=7, Normal=4, Låg=1. - "Ändra status"-knappen i åtgärdsfältet hade ingen click-handler. - Statusknapparna byggde tidigare på gissade siffror (1-6, "Makulera"=7 "antaget"). Använder nu de riktiga värdena från cr5ee_status-kolumnens vallista i Power Apps: Ej Påbörjad=156280000, Pågående=156280001, Slutförd=156280002, Godkänd=156280003, Avslagen=156280004, Inväntar godkännande=156280005. - "Skicka meddelande" gjorde inget (bara en fejkad framgångstext). Öppnar nu ett riktigt mailto:-utkast istället. - Går nu att skriva uppföljningskommentarer (med valfri bildbilaga) direkt här. Ursprungligen byggd på samma entityform-baserade lösning som Ärendedetalj.sv-SE, men den var opålitlig: ärende-fältet gömdes ibland inte (namnmanglade ASP.NET-fält är svåra att träffa säkert med CSS- selektorer) och bildbilagan krävde en separat sida-omladdning + ett andra formulär som ofta inte kopplades rätt. Ersatt med ett eget litet formulär som skickar text + bild direkt via samma webapi.safeAjax-mönster som statusändring/redigering ovan - inget entityform, ingen omladdning, inget fält som kan "läcka" synligt. {% endcomment %} {%- assign selectedId = request.params.id | default: '' | strip -%} {% fetchxml allArenden %}
+<fetch version="1.0" mapping="logical" distinct="false">
+  <entity name="cr5ee_arenden">
+    <attribute name="cr5ee_arendenid" />
+    <attribute name="cr5ee_arendeid" />
+    <attribute name="cr5ee_name" />
+    <attribute name="createdon" />
+    <attribute name="cr5ee_prioritet" />
+    <attribute name="cr5ee_status" />
+    <attribute name="cr5ee_bestallare" />
+    <attribute name="cr5ee_typ" />
+    <order attribute="createdon" descending="true" />
+  </entity>
+</fetch>
+{% endfetchxml %} {% assign allEntities = allArenden.results.entities %} {% comment %} Räkna öppna/avslutade för sidohuvudet {% endcomment %} {% assign open_count = 0 %} {% assign closed_count = 0 %} {% for arende in allEntities %} {%- assign status_label = arende['cr5ee_status@OData.Community.Display.V1.FormattedValue'] -%} {%- if status_label == nil and arende.cr5ee_status and arende.cr5ee_status.Label -%} {%- assign status_label = arende.cr5ee_status.Label -%} {%- endif -%} {%- if status_label == 'Slutförd' or status_label == 'Godkänd' or status_label == 'Avslagen' -%} {%- assign closed_count = closed_count | plus: 1 -%} {%- else -%} {%- assign open_count = open_count | plus: 1 -%} {%- endif -%} {% endfor %} {% comment %} Statusvärden för cr5ee_status - hämtade direkt från kolumnens vallista (Tables > cr5ee_arenden > Columns > Status) i Power Apps, så de här är bekräftat korrekta (inte gissade): Ej Påbörjad=156280000, Pågående=156280001, Slutförd=156280002, Godkänd=156280003, Avslagen=156280004, Inväntar godkännande=156280005. {% endcomment %} {% assign statusOptions = '156280000::Ej Påbörjad|156280001::Pågående|156280002::Slutförd|156280003::Godkänd|156280004::Avslagen|156280005::Inväntar godkännande' %} {% assign statusOptionsList = statusOptions | split: '|' %} {% assign statusOptionsCount = statusOptionsList.size %} {% comment %} Om ett ärende är valt, hämta dess fullständiga detaljer {% endcomment %} {% if selectedId != '' %} {% fetchxml detailSet %}
+<fetch version="1.0" output-format="xml-platform" mapping="logical" top="1">
+  <entity name="cr5ee_arenden">
+    <attribute name="cr5ee_arendenid" />
+    <attribute name="cr5ee_arendeid" />
+    <attribute name="cr5ee_name" />
+    <attribute name="createdon" />
+    <attribute name="cr5ee_gallande" />
+    <attribute name="cr5ee_prioritet" />
+    <attribute name="cr5ee_status" />
+    <attribute name="cr5ee_typ" />
+    <attribute name="cr5ee_bestallare" />
+    <attribute name="cr5ee_beskrivning" />
+    <attribute name="cr5ee_genomforande" />
+    <attribute name="cr5ee_accepterades" />
+    <attribute name="cr5ee_slutfordes" />
+    <filter type="and">
+      <condition attribute="cr5ee_arendenid" operator="eq" value="{{ selectedId }}" />
+    </filter>
+  </entity>
+</fetch>
+{% endfetchxml %} {% assign detailItems = detailSet.results.entities %} {% if detailItems and detailItems.size > 0 %} {% assign selectedArende = detailItems.first %} {% endif %} {% endif %}
+
+<style>
+  /* Ikoner: era SVG-filer (web-files/Icons) inbäddade i sidan; strecket är currentColor, så färgen följer texten */
+  .ip-icon {
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    vertical-align: -0.125em;
+    flex-shrink: 0;
+  }
+
+  /* === DESIGN TOKENS (avstämda mot Ärende.sv-SE.customcss.css) === */
+  .admin-container {
+    /* Primary - grafisk profil: #f18e47 med tonerna 75/50/25 % */
+    --brand-primary: #f18e47;
+    --brand-primary-75: #f5aa75;
+    --brand-primary-50: #f8c7a3;
+    --brand-primary-25: #fce3d1;
+    --brand-primary-hover: #d47d3e;
+    --brand-primary-light: rgba(241, 142, 71, 0.08);
+    --brand-secondary: #f5aa75;
+    --brand-accent: #f8c7a3;
+    --brand-dark: #172b4d;
+    --brand-text: #172b4d;
+    --brand-text-light: #5e6c84;
+    --brand-text-muted: #97a0af;
+    --gray-50: #fafbfc;
+    --gray-100: #f4f5f7;
+    --gray-200: #ebecf0;
+    --gray-300: #dfe1e6;
+    --gray-400: #c1c7d0;
+    --status-todo: #42526e;
+    --status-in-progress: #f18e47;
+    --status-done: #00875a;
+    --status-cancelled: #97a0af;
+    --priority-critical: #de350b;
+    --priority-high: #ff991f;
+    --priority-normal: #f18e47;
+    --priority-low: #00875a;
+    --shadow-sm: 0 1px 2px rgba(9, 30, 66, 0.12);
+    --shadow-md: 0 4px 8px rgba(9, 30, 66, 0.12);
+    --radius-sm: 3px;
+    --radius-md: 4px;
+    --radius-lg: 6px;
+    --transition-fast: 100ms ease;
+    --transition-base: 150ms ease;
+
+    display: flex;
+    min-height: calc(100vh - 120px);
+    background: var(--gray-100);
+    font-family: Arial, Helvetica, sans-serif;
+    color: var(--brand-text);
+  }
+
+  /* === LEFT SIDEBAR - CASE LIST === */
+  .admin-sidebar {
+    width: 380px;
+    min-width: 320px;
+    background: #ffffff;
+    border-right: 1px solid var(--gray-200);
+    border-top: 2px solid var(--brand-primary);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .sidebar-header {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--gray-200);
+    background: var(--gray-50);
+  }
+
+  .sidebar-header h2 {
+    margin: 0 0 4px 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--brand-dark);
+  }
+
+  .sidebar-header p {
+    margin: 0;
+    font-size: 12px;
+    color: var(--brand-text-light);
+  }
+
+  .sidebar-search {
+    padding: 12px;
+    border-bottom: 1px solid var(--gray-200);
+  }
+
+  .sidebar-search input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--gray-300);
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    font-family: inherit;
+    box-sizing: border-box;
+    background: var(--gray-50);
+  }
+
+  .sidebar-search input:focus {
+    outline: none;
+    border-color: var(--brand-primary);
+    background: white;
+    box-shadow: 0 0 0 3px var(--brand-primary-light);
+  }
+
+  .case-list {
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  .case-list-section {
+    border-bottom: 1px solid var(--gray-200);
+  }
+
+  .case-list-section-header {
+    padding: 8px 16px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+
+  .case-list-section-header.open {
+    background: rgba(0, 135, 90, 0.08);
+    color: var(--status-done);
+  }
+
+  .case-list-section-header.closed {
+    background: var(--gray-100);
+    color: var(--brand-text-muted);
+  }
+
+  .case-list-section-header .count {
+    float: right;
+    font-weight: 400;
+  }
+
+  .case-item {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--gray-200);
+    cursor: pointer;
+    transition: background var(--transition-fast);
+  }
+
+  .case-item:hover {
+    background: var(--gray-50);
+  }
+
+  .case-item.selected {
+    background: var(--brand-primary-light);
+    border-left: 3px solid var(--brand-primary);
+  }
+
+  .case-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 6px;
+  }
+
+  .case-item-id {
+    font-weight: 700;
+    color: var(--brand-primary);
+    font-size: 13px;
+  }
+
+  .case-item-date {
+    font-size: 11px;
+    color: var(--brand-text-muted);
+  }
+
+  .case-item-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--brand-dark);
+    margin-bottom: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .case-item-meta {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  /* === BADGES - JIRA STYLE (samma visuella språk som Ärende.sv-SE) === */
+  .priority-badge,
+  .status-badge,
+  .type-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+  }
+
+  .priority-badge.critical { background-color: rgba(222, 53, 11, 0.1); color: var(--priority-critical); }
+  .priority-badge.high { background-color: rgba(255, 153, 31, 0.1); color: var(--priority-high); }
+  .priority-badge.normal { background-color: rgba(241, 142, 71, 0.12); color: var(--priority-normal); }
+  .priority-badge.low { background-color: rgba(0, 135, 90, 0.1); color: var(--priority-low); }
+  .priority-badge.default { background-color: var(--gray-100); color: var(--brand-text-muted); }
+
+  .status-badge.ejpaborjad { background-color: rgba(66, 82, 110, 0.1); color: var(--status-todo); }
+  .status-badge.pagande { background-color: rgba(241, 142, 71, 0.12); color: var(--status-in-progress); }
+  .status-badge.invantar { background-color: rgba(255, 153, 31, 0.1); color: var(--priority-high); }
+  .status-badge.slutford,
+  .status-badge.godkand { background-color: rgba(0, 135, 90, 0.1); color: var(--status-done); }
+  .status-badge.avslagen { background-color: rgba(222, 53, 11, 0.1); color: var(--priority-critical); }
+  .status-badge.default { background-color: var(--gray-100); color: var(--brand-text-muted); }
+
+  .type-badge.system { background-color: rgba(241, 142, 71, 0.12); color: var(--brand-primary); }
+  .type-badge.onskemal { background-color: var(--brand-primary); color: white; }
+  .type-badge.default { background-color: var(--gray-100); color: var(--brand-text-muted); }
+
+  /* === RIGHT MAIN AREA === */
+  .admin-main {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+  }
+
+  .empty-selection {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 400px;
+    color: var(--brand-text-muted);
+    font-size: 15px;
+    text-align: center;
+  }
+
+  /* === DETAIL CARD (samma mönster som .arenden-card på Ärende-sidan) === */
+  .detail-card {
+    background: #ffffff;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-lg);
+    margin-bottom: 16px;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .detail-card-header {
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--gray-200);
+    background: var(--gray-50);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    border-top: 2px solid var(--brand-primary);
+    margin: -1px -1px 0 -1px;
+  }
+
+  .detail-card-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--brand-dark);
+  }
+
+  .detail-card-body {
+    padding: 18px;
+  }
+
+  /* === META GRID === */
+  .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+  }
+
+  .meta-item {
+    padding: 12px;
+    background: var(--gray-50);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--gray-200);
+  }
+
+  .meta-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: var(--brand-text-muted);
+    margin-bottom: 4px;
+  }
+
+  .meta-value {
+    font-size: 14px;
+    color: var(--brand-dark);
+    font-weight: 500;
+  }
+
+  /* === CONTENT SECTIONS === */
+  .content-section {
+    background: #ffffff;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-lg);
+    margin-top: 16px;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .content-section-header {
+    background: var(--gray-50);
+    color: var(--brand-dark);
+    padding: 10px 14px;
+    font-weight: 700;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    border-bottom: 1px solid var(--gray-200);
+  }
+
+  .content-section-body {
+    padding: 14px;
+    white-space: pre-wrap;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--brand-text);
+  }
+
+  /* === COMMENTS (samma stil som Ärendedetalj.sv-SE.customcss.css) === */
+  #commentCount {
+    font-weight: 400;
+    font-size: 13px;
+    opacity: 0.7;
+  }
+
+  .comments-list {
+    margin-top: 4px;
+  }
+
+  .comment-item {
+    display: flex;
+    gap: 12px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--gray-100);
+  }
+
+  .comment-item:last-child {
+    border-bottom: none;
+  }
+
+  .comment-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 13px;
+    background: var(--gray-200);
+    color: var(--brand-text-light);
+    flex-shrink: 0;
+  }
+
+  .comment-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .comment-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+    flex-wrap: wrap;
+  }
+
+  .comment-author {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--brand-dark);
+  }
+
+  .comment-date {
+    font-size: 11px;
+    color: var(--brand-text-muted);
+  }
+
+  .comment-text {
+    font-size: 13px;
+    color: var(--brand-text);
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .comment-image {
+    display: block;
+    max-width: 260px;
+    max-height: 260px;
+    margin-top: 10px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--gray-200);
+    object-fit: cover;
+    cursor: zoom-in;
+  }
+
+  /* === BILAGEGALLERI === */
+  .case-attachments {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .case-attachment {
+    display: block;
+    width: 132px;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    background: #ffffff;
+    text-decoration: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  a.case-attachment:hover {
+    border-color: var(--brand-primary);
+    box-shadow: 0 1px 2px rgba(9, 30, 66, 0.12);
+    text-decoration: none;
+  }
+
+  .case-attachment-thumb {
+    display: block;
+    width: 100%;
+    height: 96px;
+    object-fit: cover;
+    background: var(--gray-100);
+    cursor: zoom-in;
+  }
+
+  .case-attachment-icon {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 96px;
+    font-size: 30px;
+    color: var(--brand-primary);
+    background: var(--gray-50);
+  }
+
+  .case-attachment-ext {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    line-height: 1;
+    color: var(--brand-text-light);
+  }
+
+  .case-attachment-name {
+    padding: 6px 8px;
+    border-top: 1px solid var(--gray-100);
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--brand-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .image-lightbox-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(23, 43, 77, 0.85);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    box-sizing: border-box;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease;
+  }
+
+  .image-lightbox-overlay.active {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .image-lightbox-overlay img {
+    max-width: 90vw;
+    max-height: 90vh;
+    border-radius: var(--radius-md);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+    cursor: zoom-out;
+  }
+
+  .comment-file-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+    padding: 8px 12px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--gray-200);
+    background: var(--gray-50);
+    color: var(--brand-primary);
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .comment-file-link:hover {
+    border-color: var(--brand-primary);
+    text-decoration: none;
+  }
+
+  .comment-empty {
+    text-align: center;
+    padding: 20px;
+    color: var(--brand-text-muted);
+    font-size: 13px;
+  }
+
+  /* === COMMENT FORM (skriv kommentar) === */
+  .comment-form {
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-md);
+    padding: 14px;
+    margin-bottom: 4px;
+  }
+
+  .comment-form-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .comment-user-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 13px;
+    background: var(--gray-200);
+    color: var(--brand-text-light);
+  }
+
+  .comment-user-name {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--brand-dark);
+  }
+
+  .comment-login-prompt {
+    text-align: center;
+    padding: 18px;
+    background: var(--gray-50);
+    border: 1px dashed var(--gray-300);
+    border-radius: var(--radius-md);
+    color: var(--brand-text-light);
+    font-size: 13px;
+  }
+
+  .comment-login-prompt a {
+    color: var(--brand-primary);
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .comment-form textarea {
+    width: 100%;
+    box-sizing: border-box;
+    resize: vertical;
+    border: 1px solid var(--gray-300);
+    border-radius: var(--radius-md);
+    padding: 8px 12px;
+    font-size: 13px;
+    font-family: inherit;
+    background: #fff;
+  }
+
+  .comment-form textarea:focus {
+    border-color: var(--brand-primary);
+    box-shadow: 0 0 0 2px var(--brand-primary-light);
+    outline: none;
+  }
+
+  .comment-form-footer {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 8px;
+  }
+
+  .btn-attach-file {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 12px;
+    border-radius: var(--radius-md);
+    background: #fff;
+    border: 1px solid var(--gray-300);
+    color: var(--brand-text);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .btn-attach-file:hover {
+    border-color: var(--brand-primary);
+    color: var(--brand-primary);
+  }
+
+  .btn-comment-submit {
+    margin-left: auto;
+    background: var(--brand-primary);
+    border: none;
+    border-radius: var(--radius-md);
+    padding: 8px 16px;
+    font-weight: 600;
+    font-size: 13px;
+    font-family: inherit;
+    color: #fff;
+    cursor: pointer;
+  }
+
+  .btn-comment-submit:hover {
+    background: var(--brand-primary-hover);
+  }
+
+  .btn-comment-submit:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+
+  /* === ACTION BUTTONS === */
+  .action-bar {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 14px 18px;
+    background: var(--gray-50);
+    border-top: 1px solid var(--gray-200);
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  }
+
+  .btn-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all var(--transition-base);
+    text-decoration: none;
+    border: 1px solid transparent;
+  }
+
+  .btn-primary-action {
+    background: var(--brand-primary);
+    color: white;
+  }
+
+  .btn-primary-action:hover {
+    background: var(--brand-primary-hover);
+    box-shadow: var(--shadow-sm);
+    color: white;
+  }
+
+  .btn-secondary-action {
+    background: white;
+    color: var(--brand-text);
+    border-color: var(--gray-300);
+  }
+
+  .btn-secondary-action:hover {
+    border-color: var(--brand-primary);
+    color: var(--brand-primary);
+  }
+
+  /* === STATUS CHANGE PANEL === */
+  .status-panel {
+    background: #ffffff;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-lg);
+    margin-top: 16px;
+    padding: 16px;
+    box-shadow: var(--shadow-sm);
+    scroll-margin-top: 16px;
+  }
+
+  .status-panel h4 {
+    margin: 0 0 12px 0;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: var(--brand-text-muted);
+  }
+
+  .status-panel.highlight {
+    box-shadow: 0 0 0 3px var(--brand-primary-light), var(--shadow-sm);
+  }
+
+  .status-buttons {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .status-btn {
+    padding: 8px 14px;
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    border: 1px solid var(--gray-300);
+    background: white;
+    color: var(--brand-text-light);
+    transition: all var(--transition-fast);
+  }
+
+  .status-btn:hover {
+    border-color: var(--brand-primary);
+    color: var(--brand-primary);
+  }
+
+  .status-btn.active {
+    background: var(--brand-primary);
+    color: white;
+    border-color: var(--brand-primary);
+  }
+
+  .status-btn.danger {
+    color: var(--priority-critical);
+  }
+
+  .status-btn.danger:hover {
+    border-color: var(--priority-critical);
+    background: rgba(222, 53, 11, 0.06);
+  }
+
+  .status-btn.danger.active {
+    background: var(--priority-critical);
+    border-color: var(--priority-critical);
+    color: white;
+  }
+
+  /* === EDIT / MESSAGE PANELS === */
+  .edit-panel,
+  .message-panel {
+    margin-top: 16px;
+  }
+
+  .edit-panel .meta-item,
+  .message-panel .meta-item {
+    background: white;
+  }
+
+  .form-control {
+    font-family: inherit;
+  }
+
+  /* === RESPONSIVE === */
+  @media (max-width: 991px) {
+    .admin-container {
+      flex-direction: column;
+    }
+
+    .admin-sidebar {
+      width: 100%;
+      min-width: 100%;
+      max-height: 50vh;
+    }
+
+    .admin-main {
+      padding: 12px;
+    }
+  }
+
+  @media (max-width: 576px) {
+    .detail-card-body {
+      padding: 12px;
+    }
+
+    .meta-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .action-bar {
+      flex-direction: column;
+    }
+
+    .btn-action {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+</style>
+
+<div class="admin-container">
+  <!-- LEFT SIDEBAR -->
+  <div class="admin-sidebar">
+    <div class="sidebar-header">
+      <h2>
+        <svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false">
+          <g>
+            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M1 3c0.27614 0 0.5 -0.22386 0.5 -0.5S1.27614 2 1 2c-0.276142 0 -0.5 0.22386 -0.5 0.5s0.223858 0.5 0.5 0.5Z" stroke-width="1"></path>
+            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M4.5 2.5h9" stroke-width="1"></path>
+            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M1 7.5c0.27614 0 0.5 -0.22386 0.5 -0.5s-0.22386 -0.5 -0.5 -0.5c-0.276142 0 -0.5 0.22386 -0.5 0.5s0.223858 0.5 0.5 0.5Z" stroke-width="1"></path>
+            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M4.5 7h9" stroke-width="1"></path>
+            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M1 12c0.27614 0 0.5 -0.2239 0.5 -0.5S1.27614 11 1 11c-0.276142 0 -0.5 0.2239 -0.5 0.5s0.223858 0.5 0.5 0.5Z" stroke-width="1"></path>
+            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M4.5 11.5h9" stroke-width="1"></path>
+          </g>
+        </svg>
+        Alla ärenden
+      </h2>
+      <p>{{ open_count | default: 0 }} öppna · {{ closed_count | default: 0 }} avslutade</p>
+    </div>
+
+    <div class="sidebar-search">
+      <input type="text" id="caseSearch" placeholder="Sök ärenden..." />
+    </div>
+
+    <div class="case-list" id="caseList">
+      {% comment %} OPEN CASES SECTION {% endcomment %} {% if open_count > 0 %}
+      <div class="case-list-section">
+        <div class="case-list-section-header open">Öppna ärenden <span class="count">({{ open_count }})</span></div>
+        {% for arende in allEntities %} {%- assign status_label = arende['cr5ee_status@OData.Community.Display.V1.FormattedValue'] -%} {%- if status_label == nil and arende.cr5ee_status and arende.cr5ee_status.Label -%}{%- assign status_label = arende.cr5ee_status.Label -%}{%- endif -%} {%- if status_label != 'Slutförd' and status_label != 'Godkänd' and status_label != 'Avslagen' -%} {%- assign prio_label = arende['cr5ee_prioritet@OData.Community.Display.V1.FormattedValue'] -%} {%- if prio_label == nil and arende.cr5ee_prioritet and arende.cr5ee_prioritet.Label -%}{%- assign prio_label = arende.cr5ee_prioritet.Label -%}{%- endif -%} {%- assign typ_label = arende['cr5ee_typ@OData.Community.Display.V1.FormattedValue'] -%} {%- if typ_label == nil and arende.cr5ee_typ and arende.cr5ee_typ.Label -%}{%- assign typ_label = arende.cr5ee_typ.Label -%}{%- endif -%} {%- assign prio_class = 'default' -%} {%- case prio_label -%} {%- when 'Kritisk' -%}{%- assign prio_class = 'critical' -%} {%- when 'Hög' -%}{%- assign prio_class = 'high' -%} {%- when 'Normal' -%}{%- assign prio_class = 'normal' -%} {%- when 'Låg' -%}{%- assign prio_class = 'low' -%} {%- endcase -%} {%- assign status_class = 'default' -%} {%- case status_label -%} {%- when 'Ej Påbörjad' -%}{%- assign status_class = 'ejpaborjad' -%} {%- when 'Pågående' -%}{%- assign status_class = 'pagande' -%} {%- when 'Inväntar godkännande' -%}{%- assign status_class = 'invantar' -%} {%- when 'Slutförd' -%}{%- assign status_class = 'slutford' -%} {%- when 'Godkänd' -%}{%- assign status_class = 'godkand' -%} {%- when 'Avslagen' -%}{%- assign status_class = 'avslagen' -%} {%- endcase -%} {%- assign typ_class = 'default' -%} {%- case typ_label -%} {%- when 'System' -%}{%- assign typ_class = 'system' -%} {%- when 'Önskemål' -%}{%- assign typ_class = 'onskemal' -%} {%- endcase -%}
+        <div class="case-item {% if selectedId == arende.cr5ee_arendenid %}selected{% endif %}" data-id="{{ arende.cr5ee_arendenid }}" data-title="{{ arende.cr5ee_name | escape }}" data-idstring="{{ arende.cr5ee_arendeid | escape }}">
+          <div class="case-item-header">
+            <span class="case-item-id">{% if arende.cr5ee_arendeid %}{{ arende.cr5ee_arendeid | escape }}{% else %}{{ arende.cr5ee_arendenid | slice: 0, 8 }}{% endif %}</span>
+            <span class="case-item-date">{% if arende.createdon %}{{ arende.createdon | date: "yyyy-MM-dd" }}{% else %}-{% endif %}</span>
+          </div>
+          <div class="case-item-title">{{ arende.cr5ee_name | escape | default: '(Titel saknas)' }}</div>
+          <div class="case-item-meta">
+            <span class="priority-badge {{ prio_class }}">{{ prio_label | default: '-' }}</span>
+            <span class="status-badge {{ status_class }}">{{ status_label | default: '-' }}</span>
+            <span class="type-badge {{ typ_class }}">{{ typ_label | default: '-' }}</span>
+          </div>
+        </div>
+        {%- endif -%} {% endfor %}
+      </div>
+      {% endif %} {% comment %} CLOSED CASES SECTION {% endcomment %} {% if closed_count > 0 %}
+      <div class="case-list-section">
+        <div class="case-list-section-header closed">Avslutade ärenden <span class="count">({{ closed_count }})</span></div>
+        {% for arende in allEntities %} {%- assign status_label = arende['cr5ee_status@OData.Community.Display.V1.FormattedValue'] -%} {%- if status_label == nil and arende.cr5ee_status and arende.cr5ee_status.Label -%}{%- assign status_label = arende.cr5ee_status.Label -%}{%- endif -%} {%- if status_label == 'Slutförd' or status_label == 'Godkänd' or status_label == 'Avslagen' -%} {%- assign prio_label = arende['cr5ee_prioritet@OData.Community.Display.V1.FormattedValue'] -%} {%- if prio_label == nil and arende.cr5ee_prioritet and arende.cr5ee_prioritet.Label -%}{%- assign prio_label = arende.cr5ee_prioritet.Label -%}{%- endif -%} {%- assign typ_label = arende['cr5ee_typ@OData.Community.Display.V1.FormattedValue'] -%} {%- if typ_label == nil and arende.cr5ee_typ and arende.cr5ee_typ.Label -%}{%- assign typ_label = arende.cr5ee_typ.Label -%}{%- endif -%} {%- assign prio_class = 'default' -%} {%- case prio_label -%} {%- when 'Kritisk' -%}{%- assign prio_class = 'critical' -%} {%- when 'Hög' -%}{%- assign prio_class = 'high' -%} {%- when 'Normal' -%}{%- assign prio_class = 'normal' -%} {%- when 'Låg' -%}{%- assign prio_class = 'low' -%} {%- endcase -%} {%- assign status_class = 'default' -%} {%- case status_label -%} {%- when 'Ej Påbörjad' -%}{%- assign status_class = 'ejpaborjad' -%} {%- when 'Pågående' -%}{%- assign status_class = 'pagande' -%} {%- when 'Inväntar godkännande' -%}{%- assign status_class = 'invantar' -%} {%- when 'Slutförd' -%}{%- assign status_class = 'slutford' -%} {%- when 'Godkänd' -%}{%- assign status_class = 'godkand' -%} {%- when 'Avslagen' -%}{%- assign status_class = 'avslagen' -%} {%- endcase -%} {%- assign typ_class = 'default' -%} {%- case typ_label -%} {%- when 'System' -%}{%- assign typ_class = 'system' -%} {%- when 'Önskemål' -%}{%- assign typ_class = 'onskemal' -%} {%- endcase -%}
+        <div class="case-item {% if selectedId == arende.cr5ee_arendenid %}selected{% endif %}" data-id="{{ arende.cr5ee_arendenid }}" data-title="{{ arende.cr5ee_name | escape }}" data-idstring="{{ arende.cr5ee_arendeid | escape }}">
+          <div class="case-item-header">
+            <span class="case-item-id">{% if arende.cr5ee_arendeid %}{{ arende.cr5ee_arendeid | escape }}{% else %}{{ arende.cr5ee_arendenid | slice: 0, 8 }}{% endif %}</span>
+            <span class="case-item-date">{% if arende.createdon %}{{ arende.createdon | date: "yyyy-MM-dd" }}{% else %}-{% endif %}</span>
+          </div>
+          <div class="case-item-title">{{ arende.cr5ee_name | escape | default: '(Titel saknas)' }}</div>
+          <div class="case-item-meta">
+            <span class="priority-badge {{ prio_class }}">{{ prio_label | default: '-' }}</span>
+            <span class="status-badge {{ status_class }}">{{ status_label | default: '-' }}</span>
+            <span class="type-badge {{ typ_class }}">{{ typ_label | default: '-' }}</span>
+          </div>
+        </div>
+        {%- endif -%} {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- RIGHT MAIN AREA -->
+  <div class="admin-main">
+    {% if selectedArende %} {%- assign typ_label = selectedArende['cr5ee_typ@OData.Community.Display.V1.FormattedValue'] -%} {%- if typ_label == nil and selectedArende.cr5ee_typ and selectedArende.cr5ee_typ.Label -%}{%- assign typ_label = selectedArende.cr5ee_typ.Label -%}{%- endif -%} {%- assign prio_label = selectedArende['cr5ee_prioritet@OData.Community.Display.V1.FormattedValue'] -%} {%- if prio_label == nil and selectedArende.cr5ee_prioritet and selectedArende.cr5ee_prioritet.Label -%}{%- assign prio_label = selectedArende.cr5ee_prioritet.Label -%}{%- endif -%} {%- assign status_label = selectedArende['cr5ee_status@OData.Community.Display.V1.FormattedValue'] -%} {%- if status_label == nil and selectedArende.cr5ee_status and selectedArende.cr5ee_status.Label -%}{%- assign status_label = selectedArende.cr5ee_status.Label -%}{%- endif -%} {%- assign gallande_label = selectedArende['cr5ee_gallande@OData.Community.Display.V1.FormattedValue'] -%} {%- if gallande_label == nil and selectedArende.cr5ee_gallande and selectedArende.cr5ee_gallande.Label -%}{%- assign gallande_label = selectedArende.cr5ee_gallande.Label -%}{%- endif -%} {%- assign best_label = selectedArende['cr5ee_bestallare@OData.Community.Display.V1.FormattedValue'] -%} {%- if best_label == nil and selectedArende.cr5ee_bestallare and selectedArende.cr5ee_bestallare.Name -%}{%- assign best_label = selectedArende.cr5ee_bestallare.Name -%}{%- endif -%} {%- assign prio_class = 'default' -%} {%- case prio_label -%} {%- when 'Kritisk' -%}{%- assign prio_class = 'critical' -%} {%- when 'Hög' -%}{%- assign prio_class = 'high' -%} {%- when 'Normal' -%}{%- assign prio_class = 'normal' -%} {%- when 'Låg' -%}{%- assign prio_class = 'low' -%} {%- endcase -%} {%- assign status_class = 'default' -%} {%- case status_label -%} {%- when 'Ej Påbörjad' -%}{%- assign status_class = 'ejpaborjad' -%} {%- when 'Pågående' -%}{%- assign status_class = 'pagande' -%} {%- when 'Inväntar godkännande' -%}{%- assign status_class = 'invantar' -%} {%- when 'Slutförd' -%}{%- assign status_class = 'slutford' -%} {%- when 'Godkänd' -%}{%- assign status_class = 'godkand' -%} {%- when 'Avslagen' -%}{%- assign status_class = 'avslagen' -%} {%- endcase -%}
+
+    <!-- HEADER -->
+    <div class="detail-card">
+      <div class="detail-card-header">
+        <h3>
+          {% if selectedArende.cr5ee_name %}{{ selectedArende.cr5ee_name | escape }}{% else %}Ärende{% endif %}
+          <span style="font-weight:400;opacity:0.7;font-size:13px;margin-left:10px;">{% if selectedArende.cr5ee_arendeid %}#{{ selectedArende.cr5ee_arendeid | escape }}{% endif %}</span>
+        </h3>
+      </div>
+
+      <!-- META DATA -->
+      <div class="detail-card-body">
+        <div class="meta-grid">
+          <div class="meta-item">
+            <div class="meta-label">Skapad</div>
+            <div class="meta-value">{% if selectedArende.createdon %}{{ selectedArende.createdon | date: "yyyy-MM-dd HH:mm" }}{% else %}-{% endif %}</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-label">Beställare</div>
+            <div class="meta-value">{% if best_label %}{{ best_label | escape }}{% else %}-{% endif %}</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-label">Typ</div>
+            <div class="meta-value">{% if typ_label %}{{ typ_label | escape }}{% else %}-{% endif %}</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-label">Status</div>
+            <div class="meta-value"><span class="status-badge {{ status_class }}">{{ status_label | escape }}</span></div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-label">Prioritet</div>
+            <div class="meta-value"><span class="priority-badge {{ prio_class }}">{{ prio_label | escape }}</span></div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-label">Gällande</div>
+            <div class="meta-value">{% if gallande_label %}{{ gallande_label | escape }}{% else %}-{% endif %}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ACTION BAR -->
+      <div class="action-bar">
+        <button type="button" class="btn-action btn-primary-action" id="btnChangeStatus">Ändra status</button>
+        <button type="button" class="btn-action btn-secondary-action" id="btnEditCase">Redigera ärende</button>
+        <button type="button" class="btn-action btn-secondary-action" id="btnSendMessage">Skicka meddelande</button>
+      </div>
+    </div>
+
+    <!-- EDIT PANEL (hidden by default) -->
+    <div class="edit-panel" id="editPanel" style="display:none;">
+      <div class="detail-card">
+        <div class="detail-card-header">
+          <h3>Redigera ärende</h3>
+        </div>
+        <div class="detail-card-body">
+          <div class="meta-grid">
+            <div class="meta-item">
+              <div class="meta-label">Titel</div>
+              <input type="text" id="editName" class="form-control" value="{{ selectedArende.cr5ee_name | escape }}" style="width:100%;padding:8px;border:1px solid #dfe1e6;border-radius:4px;" />
+            </div>
+            <div class="meta-item">
+              <div class="meta-label">Prioritet</div>
+              <select id="editPriority" class="form-control" style="width:100%;padding:8px;border:1px solid #dfe1e6;border-radius:4px;">
+                <option value="10">Kritisk</option>
+                <option value="7">Hög</option>
+                <option value="4">Normal</option>
+                <option value="1">Låg</option>
+              </select>
+            </div>
+          </div>
+          <div style="margin-top:12px;">
+            <div class="meta-label">Beskrivning</div>
+            <textarea id="editDescription" class="form-control" rows="4" style="width:100%;padding:8px;border:1px solid #dfe1e6;border-radius:4px;margin-top:4px;">{{ selectedArende.cr5ee_beskrivning | escape }}</textarea>
+          </div>
+          <div style="margin-top:12px;">
+            <div class="meta-label">Genomförande</div>
+            <textarea id="editImplementation" class="form-control" rows="4" style="width:100%;padding:8px;border:1px solid #dfe1e6;border-radius:4px;margin-top:4px;">{{ selectedArende.cr5ee_genomforande | escape }}</textarea>
+          </div>
+        </div>
+        <div class="action-bar">
+          <button type="button" class="btn-action btn-primary-action" id="btnSaveEdit">Spara ändringar</button>
+          <button type="button" class="btn-action btn-secondary-action" id="btnCancelEdit">Avbryt</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MESSAGE PANEL (hidden by default) -->
+    <div class="message-panel" id="messagePanel" style="display:none;">
+      <div class="detail-card">
+        <div class="detail-card-header">
+          <h3>Skicka meddelande</h3>
+        </div>
+        <div class="detail-card-body">
+          <div class="meta-item" style="margin-bottom:12px;">
+            <div class="meta-label">Beställare</div>
+            <div id="messageTo" style="font-weight:500;"></div>
+          </div>
+          <div class="meta-item" style="margin-bottom:12px;">
+            <div class="meta-label">Ärende</div>
+            <div id="messageCase" style="font-weight:500;"></div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-label">Meddelande</div>
+            <textarea id="messageText" class="form-control" rows="5" placeholder="Skriv ditt meddelande här..." style="width:100%;padding:8px;border:1px solid #dfe1e6;border-radius:4px;margin-top:4px;"></textarea>
+          </div>
+          <p style="font-size:12px;color:var(--brand-text-muted);margin:10px 0 0;">Öppnar ett utkast i din e-postklient (ingen e-postadress är kopplad här, så mottagaren behöver fyllas i manuellt).</p>
+        </div>
+        <div class="action-bar">
+          <button type="button" class="btn-action btn-primary-action" id="btnSendMessageConfirm">Öppna e-postutkast</button>
+          <button type="button" class="btn-action btn-secondary-action" id="btnCancelMessage">Avbryt</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STATUS CHANGE PANEL -->
+    <div class="status-panel" id="statusPanel">
+      <h4>Ändra status</h4>
+      <div class="status-buttons">
+        {% for opt in statusOptionsList %} {%- if opt != '' -%} {%- assign parts = opt | split: '::' -%} {%- assign optValue = parts[0] -%} {%- assign optLabel = parts[1] -%} {%- assign isDanger = false -%} {%- if optLabel == 'Avslagen' -%}{%- assign isDanger = true -%}{%- endif -%}
+        <button type="button" class="status-btn {% if isDanger %}danger{% endif %} {% if status_label == optLabel %}active{% endif %}" data-status="{{ optValue }}" data-status-label="{{ optLabel | escape }}">{{ optLabel | escape }}</button>
+        {%- endif -%} {% endfor %}
+      </div>
+      <div id="statusMessage" style="margin-top:12px;font-size:13px;"></div>
+    </div>
+
+    <!-- DESCRIPTION -->
+    {% assign beskrivning = selectedArende.cr5ee_beskrivning %} {% assign genomforande = selectedArende.cr5ee_genomforande %} {% if beskrivning or genomforande %}
+    <div class="content-section">
+      <div class="content-section-header">Innehåll</div>
+      <div class="content-section-body">
+        {% if beskrivning %}
+        <div style="margin-bottom:16px;">
+          <strong>Beskrivning:</strong><br />
+          {{ beskrivning | escape }}
+        </div>
+        {% endif %} {% if genomforande %}
+        <div>
+          <strong>Genomförande:</strong><br />
+          {{ genomforande | escape }}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %} {%- comment -%} Bilagor kopplade till ärendet - bifogas via filväljaren på Ärende-sidans skapa-formulär. Lagras som annotation (Note) kopplad till ärendet, samma mönster som kommentarbilagorna nedan (se den kommentaren för varför $value-baserade Fil-kolumner undveks). {%- endcomment -%} {% fetchxml caseAttachmentSet %}
+    <fetch version="1.0" mapping="logical" distinct="false">
+      <entity name="annotation">
+        <attribute name="filename" />
+        <attribute name="mimetype" />
+        <attribute name="documentbody" />
+        <order attribute="createdon" descending="false" />
+        <filter type="and">
+          <condition attribute="objectid" operator="eq" value="{{ selectedArende.cr5ee_arendenid }}" />
+          <condition attribute="filename" operator="not-null" />
+        </filter>
+      </entity>
+    </fetch>
+    {% endfetchxml %} {% assign caseAttachments = caseAttachmentSet.results.entities %} {% if caseAttachments and caseAttachments.size > 0 %}
+    <div class="content-section">
+      <div class="content-section-header">
+        <svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false">
+          <g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m12.8581 6.7867 -5.87959 5.929c-0.22813 0.2324 -0.50031 0.4171 -0.80062 0.5431 -0.30031 0.1261 -0.62274 0.191 -0.94843 0.191 -0.3257 0 -0.64812 -0.0649 -0.94844 -0.191 -0.30031 -0.126 -0.57249 -0.3107 -0.80061 -0.5431l-1.75894 -1.7886c-0.46046 -0.4677 -0.71854 -1.09766 -0.71854 -1.75398 0 -0.65631 0.25808 -1.28631 0.71854 -1.75399L7.98644 1.1344c0.18372 -0.185239 0.40231 -0.332266 0.64314 -0.432602 0.24084 -0.100335 0.49915 -0.151993 0.76005 -0.151993s0.51922 0.051658 0.76007 0.151993c0.2408 0.100336 0.4594 0.247363 0.6431 0.432602l0.7016 0.7016c0.1853 0.18372 0.3323 0.40231 0.4326 0.64314 0.1004 0.24083 0.152 0.49915 0.152 0.76005s-0.0516 0.51922 -0.152 0.76005c-0.1003 0.24084 -0.2473 0.45942 -0.4326 0.64314L5.94094 10.2156c-0.09187 0.0927 -0.20116 0.1662 -0.32158 0.2163 -0.12041 0.0502 -0.24957 0.076 -0.38002 0.076 -0.13045 0 -0.25961 -0.0258 -0.38003 -0.076 -0.12041 -0.0501 -0.22971 -0.1236 -0.32157 -0.2163l-0.34586 -0.3557c-0.09262 -0.09187 -0.16613 -0.20116 -0.2163 -0.32158 -0.05016 -0.12041 -0.07599 -0.24957 -0.07599 -0.38002 0 -0.13045 0.02583 -0.25961 0.07599 -0.38003 0.05017 -0.12041 0.12368 -0.22971 0.2163 -0.32157l3.72539 -3.69574" stroke-width="1"></path></g>
+        </svg>
+        Bilagor ({{ caseAttachments.size }})
+      </div>
+      <div class="content-section-body">
+        <div class="case-attachments">
+          {% for att in caseAttachments %} {% if att.mimetype contains 'image' %}
+          <div class="case-attachment">
+            <img class="case-attachment-thumb" src="data:{{ att.mimetype }};base64,{{ att.documentbody }}" alt="{{ att.filename | escape }}" data-lightbox="true" />
+            <div class="case-attachment-name" title="{{ att.filename | escape }}">{{ att.filename | escape }}</div>
+          </div>
+          {% else %} {%- assign att_ext = '' -%} {%- if att.filename contains '.' -%}{%- assign att_ext = att.filename | split: '.' | last | upcase -%}{%- endif -%}
+          <a class="case-attachment" href="data:{{ att.mimetype }};base64,{{ att.documentbody }}" download="{{ att.filename | escape }}" title="Ladda ner {{ att.filename | escape }}">
+            <div class="case-attachment-icon">
+              <svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false">
+                <g>
+                  <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M12.5 12.5c0 0.2652 -0.1054 0.5196 -0.2929 0.7071s-0.4419 0.2929 -0.7071 0.2929h-9c-0.26522 0 -0.51957 -0.1054 -0.70711 -0.2929C1.60536 13.0196 1.5 12.7652 1.5 12.5v-11c0 -0.26522 0.10536 -0.51957 0.29289 -0.707107C1.98043 0.605357 2.23478 0.5 2.5 0.5H9L12.5 4v8.5Z" stroke-width="1"></path>
+                  <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m9 8 -2 2 -2 -2" stroke-width="1"></path>
+                  <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m7 10 0 -5.5" stroke-width="1"></path>
+                </g></svg
+              >{% if att_ext != '' and att_ext.size <= 5 %}<span class="case-attachment-ext">{{ att_ext | escape }}</span>{% endif %}
+            </div>
+            <div class="case-attachment-name" title="{{ att.filename | escape }}">{{ att.filename | escape }}</div>
+          </a>
+          {% endif %} {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endif %} {% comment %} Kommentarer/uppföljning - samma cr5ee_arende_kommentar-data som visas på Ärendedetalj, men skrivs nu direkt via Web API (se formuläret och JS längre ner) istället för via entityform. {% endcomment %} {% fetchxml commentsSet %}
+    <fetch version="1.0" mapping="logical" distinct="false">
+      <entity name="cr5ee_arende_kommentar">
+        <attribute name="cr5ee_text" />
+        <attribute name="createdon" />
+        <attribute name="cr5ee_arende" />
+        <attribute name="cr5ee_anvandare" />
+        <order attribute="createdon" descending="true" />
+        <filter type="and">
+          <condition attribute="cr5ee_arende" operator="eq" value="{{ selectedArende.cr5ee_arendenid }}" />
+        </filter>
+      </entity>
+    </fetch>
+    {% endfetchxml %} {% assign comments = commentsSet.results.entities %}
+
+    <div class="detail-card" id="commentsSection">
+      <div class="detail-card-header">
+        <h3>
+          <svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false">
+            <g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M4.14472 12.8409C5.00659 13.263 5.97562 13.5 7 13.5c3.5899 0 6.5 -2.9101 6.5 -6.5C13.5 3.41015 10.5899 0.5 7 0.5 3.41015 0.5 0.5 3.41015 0.5 7c0 1.33261 0.40102 2.57155 1.08896 3.6027m2.55576 2.2382L0.5 13.5l1.08896 -2.8973m2.55576 2.2382L4.15 12.84m-2.56104 -2.2373L1.59 10.6" stroke-width="1"></path></g>
+          </svg>
+          Uppföljning <span id="commentCount">({{ comments.size | default: 0 }})</span>
+        </h3>
+      </div>
+      <div class="detail-card-body">
+        {% if user.id %}
+        <div class="comment-form" id="commentFormWrapper">
+          <div class="comment-form-header">
+            <span class="comment-user-avatar">{{ user.fullname | slice: 0, 1 | upcase }}</span>
+            <span class="comment-user-name">{{ user.fullname }}</span>
+          </div>
+          <textarea id="newCommentText" class="form-control" rows="3" placeholder="Skriv en uppföljningskommentar..."></textarea>
+          <div class="comment-form-footer">
+            <label class="btn-attach-file" for="newCommentImage"
+              ><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false">
+                <g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m12.8581 6.7867 -5.87959 5.929c-0.22813 0.2324 -0.50031 0.4171 -0.80062 0.5431 -0.30031 0.1261 -0.62274 0.191 -0.94843 0.191 -0.3257 0 -0.64812 -0.0649 -0.94844 -0.191 -0.30031 -0.126 -0.57249 -0.3107 -0.80061 -0.5431l-1.75894 -1.7886c-0.46046 -0.4677 -0.71854 -1.09766 -0.71854 -1.75398 0 -0.65631 0.25808 -1.28631 0.71854 -1.75399L7.98644 1.1344c0.18372 -0.185239 0.40231 -0.332266 0.64314 -0.432602 0.24084 -0.100335 0.49915 -0.151993 0.76005 -0.151993s0.51922 0.051658 0.76007 0.151993c0.2408 0.100336 0.4594 0.247363 0.6431 0.432602l0.7016 0.7016c0.1853 0.18372 0.3323 0.40231 0.4326 0.64314 0.1004 0.24083 0.152 0.49915 0.152 0.76005s-0.0516 0.51922 -0.152 0.76005c-0.1003 0.24084 -0.2473 0.45942 -0.4326 0.64314L5.94094 10.2156c-0.09187 0.0927 -0.20116 0.1662 -0.32158 0.2163 -0.12041 0.0502 -0.24957 0.076 -0.38002 0.076 -0.13045 0 -0.25961 -0.0258 -0.38003 -0.076 -0.12041 -0.0501 -0.22971 -0.1236 -0.32157 -0.2163l-0.34586 -0.3557c-0.09262 -0.09187 -0.16613 -0.20116 -0.2163 -0.32158 -0.05016 -0.12041 -0.07599 -0.24957 -0.07599 -0.38002 0 -0.13045 0.02583 -0.25961 0.07599 -0.38003 0.05017 -0.12041 0.12368 -0.22971 0.2163 -0.32157l3.72539 -3.69574" stroke-width="1"></path></g>
+              </svg>
+              <span id="newCommentImageLabel">Bifoga fil</span></label
+            >
+            <input type="file" id="newCommentImage" hidden />
+            <button type="button" class="btn-comment-submit" id="btnSubmitComment">Skicka</button>
+          </div>
+          <div id="commentFormMessage" style="margin-top:8px;font-size:12px;"></div>
+        </div>
+        {% else %}
+        <div class="comment-login-prompt"><a href="{{ website.sign_in_url_substitution }}">Logga in</a> för att skriva en uppföljningskommentar</div>
+        {% endif %}
+
+        <!-- Renderas direkt som HTML av servern (inte via JS), så radbrytningar
+             i kommentartexten aldrig kan krascha ett skript. -->
+        <div id="commentsList" class="comments-list">
+          {% if comments and comments.size > 0 %} {% for comment in comments %} {%- assign comment_author = 'Okänd' -%} {%- if comment.cr5ee_anvandare and comment.cr5ee_anvandare.Name -%}{%- assign comment_author = comment.cr5ee_anvandare.Name -%}{%- endif -%}
+          <div class="comment-item">
+            <div class="comment-avatar">{{ comment_author | slice: 0, 1 | upcase }}</div>
+            <div class="comment-content">
+              <div class="comment-header">
+                <span class="comment-author">{{ comment_author | escape }}</span>
+                <span class="comment-date">{{ comment.createdon | date: 'yyyy-MM-dd HH:mm' }}</span>
+              </div>
+              <div class="comment-text">{{ comment.cr5ee_text | escape }}</div>
+              {%- comment -%} Bifogad fil/bild - lagras som en annotation (Note) kopplad till kommentaren. documentbody är en vanlig base64-textsträng som FetchXML läser direkt, ingen separat nedladdnings-URL behövs (till skillnad från Fil-kolumner, vars $value-nedladdning visade sig vara blockerad av Power Pages klient-API rakt av). {%- endcomment -%} {% fetchxml commentAttachmentSet %}
+              <fetch version="1.0" mapping="logical" distinct="false" top="1">
+                <entity name="annotation">
+                  <attribute name="filename" />
+                  <attribute name="mimetype" />
+                  <attribute name="documentbody" />
+                  <filter type="and">
+                    <condition attribute="objectid" operator="eq" value="{{ comment.cr5ee_arende_kommentarid }}" />
+                  </filter>
+                </entity>
+              </fetch>
+              {% endfetchxml %} {% assign commentAttachmentItems = commentAttachmentSet.results.entities %} {% if commentAttachmentItems and commentAttachmentItems.size > 0 %} {% assign commentAttachment = commentAttachmentItems.first %} {% if commentAttachment.mimetype contains 'image' %}
+              <img class="comment-image" src="data:{{ commentAttachment.mimetype }};base64,{{ commentAttachment.documentbody }}" alt="{{ commentAttachment.filename | escape }}" data-lightbox="true" />
+              {% else %}
+              <a class="comment-file-link" href="data:{{ commentAttachment.mimetype }};base64,{{ commentAttachment.documentbody }}" download="{{ commentAttachment.filename | escape }}"
+                ><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false">
+                  <g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m12.8581 6.7867 -5.87959 5.929c-0.22813 0.2324 -0.50031 0.4171 -0.80062 0.5431 -0.30031 0.1261 -0.62274 0.191 -0.94843 0.191 -0.3257 0 -0.64812 -0.0649 -0.94844 -0.191 -0.30031 -0.126 -0.57249 -0.3107 -0.80061 -0.5431l-1.75894 -1.7886c-0.46046 -0.4677 -0.71854 -1.09766 -0.71854 -1.75398 0 -0.65631 0.25808 -1.28631 0.71854 -1.75399L7.98644 1.1344c0.18372 -0.185239 0.40231 -0.332266 0.64314 -0.432602 0.24084 -0.100335 0.49915 -0.151993 0.76005 -0.151993s0.51922 0.051658 0.76007 0.151993c0.2408 0.100336 0.4594 0.247363 0.6431 0.432602l0.7016 0.7016c0.1853 0.18372 0.3323 0.40231 0.4326 0.64314 0.1004 0.24083 0.152 0.49915 0.152 0.76005s-0.0516 0.51922 -0.152 0.76005c-0.1003 0.24084 -0.2473 0.45942 -0.4326 0.64314L5.94094 10.2156c-0.09187 0.0927 -0.20116 0.1662 -0.32158 0.2163 -0.12041 0.0502 -0.24957 0.076 -0.38002 0.076 -0.13045 0 -0.25961 -0.0258 -0.38003 -0.076 -0.12041 -0.0501 -0.22971 -0.1236 -0.32157 -0.2163l-0.34586 -0.3557c-0.09262 -0.09187 -0.16613 -0.20116 -0.2163 -0.32158 -0.05016 -0.12041 -0.07599 -0.24957 -0.07599 -0.38002 0 -0.13045 0.02583 -0.25961 0.07599 -0.38003 0.05017 -0.12041 0.12368 -0.22971 0.2163 -0.32157l3.72539 -3.69574" stroke-width="1"></path></g>
+                </svg>
+                {{ commentAttachment.filename | escape }}</a
+              >
+              {% endif %} {% endif %}
+            </div>
+          </div>
+          {% endfor %} {% else %}
+          <div class="comment-empty" id="commentEmpty">
+            <p>Inga kommentarer ännu.</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% else %}
+    <!-- EMPTY STATE -->
+    <div class="empty-selection">
+      <div>
+        <div style="font-size:40px;margin-bottom:16px;">
+          <svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false">
+            <g>
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M4.75 0.5 2.25 3l2.5 2.5" stroke-width="1"></path>
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M1.75 8.25c0 1.03835 0.30791 2.0534 0.88478 2.9167 0.57688 0.8634 1.39682 1.5363 2.35613 1.9337 0.95931 0.3973 2.01491 0.5013 3.03331 0.2987 1.0184 -0.2025 1.95387 -0.7026 2.68808 -1.4368 0.7342 -0.7342 1.2343 -1.6697 1.4368 -2.68808 0.2026 -1.0184 0.0986 -2.074 -0.2987 -3.03331 -0.3974 -0.95931 -1.0703 -1.77925 -1.93366 -2.35613C9.05339 3.30791 8.03835 3 7 3H2.25" stroke-width="1"></path>
+            </g>
+          </svg>
+        </div>
+        <div>Välj ett ärende från listan till vänster</div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{%- comment -%} Bildförstoring för kommentarbilder. Ett klick på en
+<a href="data:..." target="_blank">
+  öppnas inte i moderna webbläsare (Chrome m.fl. blockerar navigering till data:-URI:er i en ny flik som ett skydd mot nätfiske) - därför visas bilden istället i en overlay här på sidan, utan någon navigering alls. {%- endcomment -%}
+  <div class="image-lightbox-overlay" id="imageLightbox">
+    <img id="imageLightboxImg" src="" alt="" />
+  </div>
+
+  {% include 'Portal Web API Wrapper' %}
+  <script>
+    // Prioritetsvärden enligt Ärende.sv-SE.webpage.copy.html: Kritisk=10, Hög=7, Normal=4, Låg=1
+    var priorityMapping = {
+      'Kritisk': 10,
+      'Hög': 7,
+      'Normal': 4,
+      'Låg': 1
+    };
+
+    var currentCaseId = null;
+    var currentCaseData = null;
+
+    document.addEventListener('DOMContentLoaded', function() {
+      initImageLightbox();
+
+      // ===== NY KOMMENTAR (text + valfri bild, direkt via Web API) =====
+      var btnSubmitComment = document.getElementById('btnSubmitComment');
+      var newCommentImage = document.getElementById('newCommentImage');
+      var newCommentImageLabel = document.getElementById('newCommentImageLabel');
+
+      if (newCommentImage) {
+        newCommentImage.addEventListener('change', function() {
+          var f = newCommentImage.files[0];
+          newCommentImageLabel.textContent = f ? f.name : 'Bifoga fil';
+        });
+      }
+
+      if (btnSubmitComment) {
+        btnSubmitComment.addEventListener('click', function() {
+          submitNewComment();
+        });
+      }
+
+      var caseItems = document.querySelectorAll('.case-item');
+      caseItems.forEach(function(item) {
+        item.addEventListener('click', function() {
+          var id = item.getAttribute('data-id');
+          window.location.href = '/Ärendehantering?id=' + id;
+        });
+      });
+
+      // Sökfunktion
+      var searchInput = document.getElementById('caseSearch');
+      if (searchInput) {
+        searchInput.addEventListener('input', function() {
+          var query = this.value.toLowerCase();
+          caseItems.forEach(function(item) {
+            var title = item.getAttribute('data-title') || '';
+            var idString = item.getAttribute('data-idstring') || '';
+            item.style.display = (title.toLowerCase().includes(query) || idString.toLowerCase().includes(query)) ? '' : 'none';
+          });
+        });
+      }
+
+      var urlParams = new URLSearchParams(window.location.search);
+      currentCaseId = urlParams.get('id');
+
+      // OBS: beskrivning/genomförande sätts INTE här längre - de skrivs direkt in
+      // som HTML-innehåll i textarea-taggarna (se editDescription/editImplementation
+      // ovan). Fritext med radbrytningar i en JS-strängliteral ("...") kraschar
+      // hela skript-blocket (samma buggklass som kommentarerna hade) - och då
+      // hinner koden aldrig nå fram till att koppla klick-lyssnare på
+      // statusknapparna längre ner, vilket är varför statusändring slutade
+      // fungera.
+      currentCaseData = {
+        name: "{{ selectedArende.cr5ee_name | escape | default: '' }}",
+        arendeId: "{{ selectedArende.cr5ee_arendeid | escape | default: '' }}",
+        priority: "{{ selectedArende.cr5ee_prioritet.Value | default: 4 }}",
+        bestallare: "{{ best_label | escape | default: '' }}"
+      };
+
+      // Initiera redigeringsfälten (prioritet är ett fast set av heltal - säkert
+      // att sätta via JS)
+      var editPriority = document.getElementById('editPriority');
+      if (editPriority && currentCaseData.priority) editPriority.value = currentCaseData.priority;
+
+      // Statusknappar
+      var statusBtns = document.querySelectorAll('.status-btn');
+      statusBtns.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          if (!currentCaseId) {
+            showMessage('Inget ärende valt', 'error');
+            return;
+          }
+
+          var newStatus = parseInt(btn.getAttribute('data-status'), 10);
+          var newStatusLabel = btn.getAttribute('data-status-label');
+
+          if (btn.classList.contains('danger') && !window.confirm('Är du säker på att du vill sätta status till "' + newStatusLabel + '"?')) {
+            return;
+          }
+
+          updateCaseStatus(currentCaseId, newStatus, newStatusLabel);
+        });
+      });
+
+      // "Ändra status" i åtgärdsfältet - skrolla till och markera statuspanelen
+      var btnChangeStatus = document.getElementById('btnChangeStatus');
+      if (btnChangeStatus) {
+        btnChangeStatus.addEventListener('click', function() {
+          var panel = document.getElementById('statusPanel');
+          if (!panel) return;
+          panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          panel.classList.add('highlight');
+          setTimeout(function() { panel.classList.remove('highlight'); }, 1500);
+        });
+      }
+
+      // Redigera-knapp
+      var btnEdit = document.getElementById('btnEditCase');
+      if (btnEdit) {
+        btnEdit.addEventListener('click', function() {
+          document.getElementById('editPanel').style.display = 'block';
+          document.getElementById('messagePanel').style.display = 'none';
+          document.getElementById('editPanel').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+      }
+
+      var btnSaveEdit = document.getElementById('btnSaveEdit');
+      if (btnSaveEdit) {
+        btnSaveEdit.addEventListener('click', function() {
+          saveCaseEdit();
+        });
+      }
+
+      var btnCancelEdit = document.getElementById('btnCancelEdit');
+      if (btnCancelEdit) {
+        btnCancelEdit.addEventListener('click', function() {
+          document.getElementById('editPanel').style.display = 'none';
+        });
+      }
+
+      // Skicka meddelande
+      var btnSendMsg = document.getElementById('btnSendMessage');
+      if (btnSendMsg) {
+        btnSendMsg.addEventListener('click', function() {
+          document.getElementById('messagePanel').style.display = 'block';
+          document.getElementById('editPanel').style.display = 'none';
+          document.getElementById('messageTo').textContent = currentCaseData.bestallare || '-';
+          document.getElementById('messageCase').textContent = currentCaseData.name || '-';
+          document.getElementById('messagePanel').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+      }
+
+      var btnSendConfirm = document.getElementById('btnSendMessageConfirm');
+      if (btnSendConfirm) {
+        btnSendConfirm.addEventListener('click', function() {
+          openMessageDraft();
+        });
+      }
+
+      var btnCancelMsg = document.getElementById('btnCancelMessage');
+      if (btnCancelMsg) {
+        btnCancelMsg.addEventListener('click', function() {
+          document.getElementById('messagePanel').style.display = 'none';
+        });
+      }
+    });
+
+    // Dataverse döljer ofta den faktiska orsaken bakom en generisk
+    // "Ett fel inträffade i Common Data Service" - den mer specifika texten
+    // (ogiltigt fältnamn, obligatoriskt fält saknas, etc.) ligger i regel i
+    // error.innererror.message istället.
+    function extractErrorMessage(xhr) {
+      try {
+        var err = JSON.parse(xhr.responseText).error;
+        if (err.innererror && err.innererror.message) return err.innererror.message;
+        return err.message;
+      } catch (e) {
+        return 'Okänt fel';
+      }
+    }
+
+    function showMessage(msg, type) {
+      var msgDiv = document.getElementById('statusMessage');
+      if (!msgDiv) return;
+
+      var color = type === 'success' ? '#00875a' : (type === 'error' ? '#de350b' : '#5e6c84');
+      var bg = type === 'success' ? 'rgba(0,135,90,0.1)' : (type === 'error' ? 'rgba(222,53,11,0.1)' : '#f4f5f7');
+
+      msgDiv.innerHTML = '<span style="color:' + color + ';background:' + bg + ';padding:8px 12px;border-radius:4px;">' + msg + '</span>';
+
+      setTimeout(function() {
+        msgDiv.innerHTML = '';
+      }, 5000);
+    }
+
+    // Uppdaterar ärendestatus via Dataverse Web API (kräver __RequestVerificationToken,
+    // därför webapi.safeAjax istället för en vanlig fetch()).
+    function updateCaseStatus(caseId, statusValue, statusLabel) {
+      showMessage('Uppdaterar...', 'info');
+
+      webapi.safeAjax({
+        type: 'PATCH',
+        url: '/_api/cr5ee_arendens(' + caseId + ')',
+        contentType: 'application/json',
+        data: JSON.stringify({ 'cr5ee_status': statusValue }),
+        success: function() {
+          showMessage('Status ändrad till ' + statusLabel + '!', 'success');
+          setTimeout(function() {
+            window.location.reload();
+          }, 1200);
+        },
+        error: function(xhr) {
+          var msg = extractErrorMessage(xhr);
+          console.error('API Error:', xhr.responseText);
+          showMessage('Kunde inte uppdatera: ' + msg, 'error');
+        }
+      });
+    }
+
+    function saveCaseEdit() {
+      if (!currentCaseId) {
+        showMessage('Inget ärende valt', 'error');
+        return;
+      }
+
+      showMessage('Sparar...', 'info');
+
+      var data = {
+        'cr5ee_name': document.getElementById('editName').value,
+        'cr5ee_beskrivning': document.getElementById('editDescription').value,
+        'cr5ee_genomforande': document.getElementById('editImplementation').value,
+        'cr5ee_prioritet': parseInt(document.getElementById('editPriority').value, 10)
+      };
+
+      webapi.safeAjax({
+        type: 'PATCH',
+        url: '/_api/cr5ee_arendens(' + currentCaseId + ')',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function() {
+          showMessage('Ärendet har uppdaterats!', 'success');
+          document.getElementById('editPanel').style.display = 'none';
+          setTimeout(function() {
+            window.location.reload();
+          }, 1200);
+        },
+        error: function(xhr) {
+          var msg = extractErrorMessage(xhr);
+          console.error('API Error:', xhr.responseText);
+          showMessage('Kunde inte spara: ' + msg, 'error');
+        }
+      });
+    }
+
+    // Det finns ingen bekräftad e-postadress kopplad till ärendet i den här
+    // vyn, så vi öppnar ett riktigt mailto-utkast (fungerar alltid) istället
+    // för att låtsas skicka något inifrån portalen.
+    function openMessageDraft() {
+      var messageText = document.getElementById('messageText').value;
+      if (!messageText.trim()) {
+        showMessage('Skriv ett meddelande först', 'error');
+        return;
+      }
+
+      var subject = 'Angående ärende ' + (currentCaseData.arendeId || currentCaseData.name || '');
+      var body = messageText;
+      if (currentCaseData.bestallare) {
+        body += '\n\n(Beställare: ' + currentCaseData.bestallare + ')';
+      }
+
+      window.location.href = 'mailto:?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+      document.getElementById('messagePanel').style.display = 'none';
+    }
+
+    function showCommentFormMessage(msg, type) {
+      var el = document.getElementById('commentFormMessage');
+      if (!el) return;
+      el.style.color = type === 'error' ? '#de350b' : (type === 'success' ? '#00875a' : '#5e6c84');
+      el.textContent = msg;
+    }
+
+    // Skapar en ny cr5ee_arende_kommentar direkt via Web API - inget entityform,
+    // ingen sidomladdning, inget fält som kan visas av misstag.
+    //
+    // Entitetsnamnet cr5ee_arende_kommentars och Webapi/-inställningarna är
+    // bekräftade (samma felsökning som gjordes för cr5ee_arenden ->
+    // cr5ee_arendens). Bindningen "cr5ee_Arende@odata.bind" (stor bokstav)
+    // gav "undeclared property" från Dataverse - fixat till gemener
+    // ("cr5ee_arende@odata.bind"), som matchar attributnamnet i FetchXML.
+    function submitNewComment() {
+      var textEl = document.getElementById('newCommentText');
+      var fileEl = document.getElementById('newCommentImage');
+      var text = textEl.value.trim();
+
+      if (!text) {
+        showCommentFormMessage('Skriv något innan du skickar.', 'error');
+        return;
+      }
+      if (!currentCaseId) {
+        showCommentFormMessage('Inget ärende valt.', 'error');
+        return;
+      }
+
+      var btn = document.getElementById('btnSubmitComment');
+      if (btn) btn.disabled = true;
+      showCommentFormMessage('Skickar...', 'info');
+
+      webapi.safeAjax({
+        type: 'POST',
+        url: '/_api/cr5ee_arende_kommentars',
+        contentType: 'application/json',
+        data: JSON.stringify({
+          'cr5ee_text': text,
+          'cr5ee_arende@odata.bind': '/cr5ee_arendens(' + currentCaseId + ')',
+          'cr5ee_anvandare@odata.bind': '/contacts({{ user.id }})'
+        }),
+        success: function(data, status, xhr) {
+          var entityIdHeader = xhr.getResponseHeader('OData-EntityId') || xhr.getResponseHeader('odata-entityid') || '';
+          var match = entityIdHeader.match(/\(([0-9a-fA-F-]{36})\)/);
+          var newCommentId = match ? match[1] : null;
+          var file = fileEl && fileEl.files[0];
+
+          if (file && !newCommentId) {
+            console.warn('Kunde inte läsa ut ID:t för den nya kommentaren (OData-EntityId-header saknades/kunde inte tolkas) - bilden bifogas inte.', entityIdHeader);
+            showCommentFormMessage('Kommentaren sparades, men bilden kunde inte bifogas (hittade inte kommentarens ID).', 'error');
+            setTimeout(finishCommentSubmit, 2500);
+            return;
+          }
+
+          if (newCommentId && file) {
+            uploadCommentImage(newCommentId, file, finishCommentSubmit);
+          } else {
+            finishCommentSubmit();
+          }
+        },
+        error: function(xhr) {
+          if (btn) btn.disabled = false;
+          var msg = extractErrorMessage(xhr);
+          console.error('API Error:', xhr.responseText);
+          showCommentFormMessage('Kunde inte skicka kommentaren: ' + msg, 'error');
+        }
+      });
+    }
+
+    // Sparar filen som en "annotation" (Note) kopplad till kommentaren via
+    // Dataverse standardmönster för polymorfa lookups:
+    // "<fält>_<målentitet>@odata.bind". documentbody är en vanlig base64-text-
+    // sträng - ingen $value-nedladdning behövs för att visa den igen (den
+    // vägen visade sig vara blockerad av Power Pages klient-API, oavsett
+    // behörighet/token/cookies). isdocument:true markerar posten som en riktig
+    // bilaga (annars syns den inte som en bilaga i Dataverse-gränssnittet).
+    function uploadCommentImage(commentId, file, callback) {
+      var reader = new FileReader();
+      reader.onload = function() {
+        var base64 = reader.result.split(',')[1];
+        webapi.safeAjax({
+          type: 'POST',
+          url: '/_api/annotations',
+          contentType: 'application/json',
+          data: JSON.stringify({
+            'objectid_cr5ee_arende_kommentar@odata.bind': '/cr5ee_arende_kommentars(' + commentId + ')',
+            'subject': 'Bifogad fil',
+            'filename': file.name,
+            'mimetype': file.type || 'application/octet-stream',
+            'documentbody': base64,
+            'isdocument': true
+          }),
+          success: function() { callback(); },
+          error: function(xhr) {
+            var msg = extractErrorMessage(xhr);
+            console.error('Kunde inte spara filen:', xhr.responseText);
+            showCommentFormMessage('Kommentaren sparades, men filen kunde inte bifogas: ' + msg, 'error');
+            setTimeout(callback, 2500);
+          }
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function finishCommentSubmit() {
+      showCommentFormMessage('Kommentaren har lagts till!', 'success');
+      setTimeout(function() {
+        window.location.reload();
+      }, 800);
+    }
+
+    function initImageLightbox() {
+      var overlay = document.getElementById('imageLightbox');
+      var overlayImg = document.getElementById('imageLightboxImg');
+      if (!overlay || !overlayImg) return;
+
+      document.querySelectorAll('.comment-image[data-lightbox], .case-attachment-thumb[data-lightbox]').forEach(function(img) {
+        img.addEventListener('click', function() {
+          overlayImg.src = img.src;
+          overlayImg.alt = img.alt;
+          overlay.classList.add('active');
+        });
+      });
+
+      function closeLightbox() {
+        overlay.classList.remove('active');
+        overlayImg.src = '';
+      }
+
+      overlay.addEventListener('click', closeLightbox);
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeLightbox();
+      });
+    }
+  </script>
+  <div class="row sectionBlockLayout text-start" style="display: flex; flex-wrap: wrap; margin: 0px; min-height: auto; padding: 8px;">
+    <div class="container" style="padding: 0px; display: flex; flex-wrap: wrap;"><div class="col-lg-12 columnBlockLayout" style="flex-grow: 1; display: flex; flex-direction: column; min-width: 250px;"></div></div></div
+></a>

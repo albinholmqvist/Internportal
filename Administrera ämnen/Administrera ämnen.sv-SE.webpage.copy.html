@@ -1,0 +1,503 @@
+{%- comment -%}
+Kunskapsbank – administration (sidan Administratör Ämnen, /Admin-Topics).
+Liquid renderar alla ämnen och artiklar (även opublicerade) som tabellrader med data-attribut;
+Administratör Ämnen.sv-SE.customjs.js sköter flikar, filter, formulär och sparar via Web API
+(webapi.safeAjax från mallen Portal Web API Wrapper). Efter att något sparats laddas sidan om,
+så att tabellerna alltid visar det som ligger i Dataverse.
+Kräver: webbrollen Administratör, tabellbehörigheter (skapa/läsa/ändra/radera) på faq_article,
+faq_topic och annotation, samt Webapi/faq_article/* och Webapi/faq_topic/* i webbplatsinställningarna.
+{%- endcomment -%}
+{%- assign isAdmin = false -%}
+{%- comment -%} Webbrollen heter Administratör hos Kfast; de andra stavningarna godtas också {%- endcomment -%}
+{%- if user -%}{%- if user.roles contains 'Administratör' or user.roles contains 'Administratörer' or user.roles contains 'Administrators' -%}{%- assign isAdmin = true -%}{%- endif -%}{%- endif -%}
+
+{% if isAdmin %}
+{% fetchxml kbTopicSet %}
+<fetch version="1.0" mapping="logical">
+  <entity name="faq_topic">
+    <attribute name="faq_topicid" />
+    <attribute name="faq_topictitle" />
+    <attribute name="faq_topicdescription" />
+    <attribute name="faq_topicicon" />
+    <attribute name="faq_parenttopic" />
+    <attribute name="faq_topicorder" />
+    <attribute name="faq_publishedstatus" />
+    <attribute name="modifiedon" />
+    <order attribute="faq_topicorder" descending="false" />
+    <order attribute="faq_topictitle" descending="false" />
+  </entity>
+</fetch>
+{% endfetchxml %}
+{%- assign kbTopics = kbTopicSet.results.entities -%}
+
+{% fetchxml kbArticleSet %}
+<fetch version="1.0" mapping="logical">
+  <entity name="faq_article">
+    <attribute name="faq_articleid" />
+    <attribute name="faq_articletitle" />
+    <attribute name="faq_articlebody" />
+    <attribute name="cr5ee_sammanfattning" />
+    <attribute name="cr5ee_artikeltyp" />
+    <attribute name="cr5ee_videolank" />
+    <attribute name="faq_topic" />
+    <attribute name="faq_featuredarticleorder" />
+    <attribute name="faq_publishedstatus" />
+    <attribute name="modifiedon" />
+    <order attribute="modifiedon" descending="true" />
+  </entity>
+</fetch>
+{% endfetchxml %}
+{%- assign kbArticles = kbArticleSet.results.entities -%}
+
+{% fetchxml kbAttachmentSet %}
+<fetch version="1.0" mapping="logical">
+  <entity name="annotation">
+    <attribute name="annotationid" />
+    <attribute name="filename" />
+    <attribute name="filesize" />
+    <attribute name="subject" />
+    <attribute name="objectid" />
+    <order attribute="createdon" descending="false" />
+    <filter type="and">
+      <condition attribute="filename" operator="not-null" />
+    </filter>
+    <link-entity name="faq_article" from="faq_articleid" to="objectid" link-type="inner" />
+  </entity>
+</fetch>
+{% endfetchxml %}
+{%- assign kbAttachments = kbAttachmentSet.results.entities -%}
+
+<div class="kb-page kb-admin">
+
+  <div class="kb-hero kb-hero-compact">
+    <div class="kb-container">
+      <div class="kb-hero-row">
+        <div>
+          <h1>Kunskapsbank – administration</h1>
+          <p class="kb-subtitle">Skapa och redigera ämnen, FAQ, lathundar, videos och instruktioner.</p>
+        </div>
+        <div class="kb-hero-actions">
+          <a href="/Kunskapsbank/" class="kb-btn kb-btn-secondary" target="_blank" rel="noopener"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M13.23 6.2463c0.1658 0.20672 0.2576 0.47529 0.2576 0.75376s-0.0918 0.54704 -0.2576 0.75376c-1.05 1.27127 -3.44003 3.74628 -6.23003 3.74628s-5.18 -2.47501 -6.230002 -3.74628c-0.16584 -0.20672 -0.257639 -0.47529 -0.257639 -0.75376s0.091799 -0.54704 0.257639 -0.75376C1.81997 4.97503 4.20997 2.5 6.99997 2.5S12.18 4.97503 13.23 6.2463Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 9c1.10457 0 2 -0.89543 2 -2s-0.89543 -2 -2 -2 -2 0.89543 -2 2 0.89543 2 2 2Z" stroke-width="1"></path></g></svg> Visa kunskapsbanken</a>
+          <button type="button" class="kb-btn kb-btn-secondary" data-action="new-topic"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7.47003 6.89996c-0.14833 0.06441 -0.3083 0.09764 -0.47 0.09764 -0.16171 0 -0.32168 -0.03323 -0.47 -0.09764l-5.700004 -2.64c-0.092558 -0.04668 -0.170342 -0.11814 -0.224688 -0.20642 -0.054346 -0.08828 -0.083121 -0.18991 -0.083121 -0.29358 0 -0.10367 0.028775 -0.2053 0.083121 -0.29358 0.054346 -0.08827 0.13213 -0.15973 0.224688 -0.20642L6.53003 0.599961c0.14832 -0.064407 0.30829 -0.097642 0.47 -0.097642 0.1617 0 0.32167 0.033235 0.47 0.097642L13.17 3.23996c0.0926 0.04669 0.1704 0.11815 0.2247 0.20642 0.0544 0.08828 0.0831 0.18991 0.0831 0.29358 0 0.10367 -0.0287 0.2053 -0.0831 0.29358 -0.0543 0.08828 -0.1321 0.15974 -0.2247 0.20642l-5.69997 2.66Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M13.5 7.34998 7.4 10.16c-0.13028 0.0594 -0.27181 0.0902 -0.415 0.0902 -0.14319 0 -0.28472 -0.0308 -0.415 -0.0902L0.5 7.34998" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m13.5 10.6 -6.1 2.81c-0.13028 0.0594 -0.27181 0.0902 -0.415 0.0902 -0.14319 0 -0.28472 -0.0308 -0.415 -0.0902L0.5 10.6" stroke-width="1"></path></g></svg> Nytt ämne</button>
+          <button type="button" class="kb-btn kb-btn-primary" data-action="new-article"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 0.5v13" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M0.5 6.95996h13" stroke-width="1"></path></g></svg> Ny artikel</button>
+        </div>
+      </div>
+      <div class="kb-stats">
+        <div class="kb-stat"><span class="kb-stat-number" data-stat="articles">0</span><span class="kb-stat-label">Artiklar</span></div>
+        <div class="kb-stat"><span class="kb-stat-number" data-stat="published">0</span><span class="kb-stat-label">Publicerade</span></div>
+        <div class="kb-stat"><span class="kb-stat-number" data-stat="drafts">0</span><span class="kb-stat-label">Utkast</span></div>
+        <div class="kb-stat"><span class="kb-stat-number" data-stat="topics">0</span><span class="kb-stat-label">Ämnen</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="kb-container">
+    <div class="kb-toast" id="kbToast" role="status" aria-live="polite" hidden></div>
+
+    <div class="kb-tabs" role="tablist" aria-label="Innehåll">
+      <button type="button" role="tab" class="kb-tab active" id="tabArticles" aria-controls="panelArticles" aria-selected="true" data-tab="articles"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M9 2.5H3c-0.55228 0 -1 0.44772 -1 1v9c0 0.5523 0.44772 1 1 1h6c0.55228 0 1 -0.4477 1 -1v-9c0 -0.55228 -0.44772 -1 -1 -1Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M4 5h4" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M4 7.5h4" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M4 10h2" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M4.5 0.5H11c0.2652 0 0.5196 0.105357 0.7071 0.292893C11.8946 0.98043 12 1.23478 12 1.5V11" stroke-width="1"></path></g></svg> Artiklar <span class="kb-tab-count" data-stat="articles">0</span></button>
+      <button type="button" role="tab" class="kb-tab" id="tabTopics" aria-controls="panelTopics" aria-selected="false" data-tab="topics"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7.47003 6.89996c-0.14833 0.06441 -0.3083 0.09764 -0.47 0.09764 -0.16171 0 -0.32168 -0.03323 -0.47 -0.09764l-5.700004 -2.64c-0.092558 -0.04668 -0.170342 -0.11814 -0.224688 -0.20642 -0.054346 -0.08828 -0.083121 -0.18991 -0.083121 -0.29358 0 -0.10367 0.028775 -0.2053 0.083121 -0.29358 0.054346 -0.08827 0.13213 -0.15973 0.224688 -0.20642L6.53003 0.599961c0.14832 -0.064407 0.30829 -0.097642 0.47 -0.097642 0.1617 0 0.32167 0.033235 0.47 0.097642L13.17 3.23996c0.0926 0.04669 0.1704 0.11815 0.2247 0.20642 0.0544 0.08828 0.0831 0.18991 0.0831 0.29358 0 0.10367 -0.0287 0.2053 -0.0831 0.29358 -0.0543 0.08828 -0.1321 0.15974 -0.2247 0.20642l-5.69997 2.66Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M13.5 7.34998 7.4 10.16c-0.13028 0.0594 -0.27181 0.0902 -0.415 0.0902 -0.14319 0 -0.28472 -0.0308 -0.415 -0.0902L0.5 7.34998" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m13.5 10.6 -6.1 2.81c-0.13028 0.0594 -0.27181 0.0902 -0.415 0.0902 -0.14319 0 -0.28472 -0.0308 -0.415 -0.0902L0.5 10.6" stroke-width="1"></path></g></svg> Ämnen <span class="kb-tab-count" data-stat="topics">0</span></button>
+    </div>
+
+    <!-- ===== ARTIKLAR ===== -->
+    <section class="kb-panel" id="panelArticles" role="tabpanel" aria-labelledby="tabArticles">
+      <div class="kb-toolbar kb-toolbar-filters">
+        <div class="kb-search kb-search-sm">
+          <span class="kb-search-icon" aria-hidden="true"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M6 11.5c3.03757 0 5.5 -2.46243 5.5 -5.5S9.03757 0.5 6 0.5 0.5 2.96243 0.5 6s2.46243 5.5 5.5 5.5Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M13.5 13.5 10 10" stroke-width="1"></path></g></svg></span>
+          <label for="artSearch" class="sr-only">Sök artiklar</label>
+          <input type="search" id="artSearch" class="kb-search-input" placeholder="Sök titel, sammanfattning eller ämne..." autocomplete="off" />
+        </div>
+        <label for="artFilterTopic" class="sr-only">Ämne</label>
+        <select id="artFilterTopic" class="kb-select">
+          <option value="">Alla ämnen</option>
+          {%- for t in kbTopics -%}{%- unless t.faq_parenttopic -%}
+            <option value="{{ t.faq_topicid }}">{{ t.faq_topictitle | escape }}</option>
+            {%- for s in kbTopics -%}{%- if s.faq_parenttopic and s.faq_parenttopic.id == t.faq_topicid -%}
+            <option value="{{ s.faq_topicid }}">&nbsp;&nbsp;– {{ s.faq_topictitle | escape }}</option>
+            {%- endif -%}{%- endfor -%}
+          {%- endunless -%}{%- endfor -%}
+        </select>
+        <label for="artFilterType" class="sr-only">Typ</label>
+        <select id="artFilterType" class="kb-select">
+          <option value="">Alla typer</option>
+          <option value="faq">FAQ</option>
+          <option value="lathund">Lathund</option>
+          <option value="video">Video</option>
+          <option value="instruktion">Instruktion</option>
+          <option value="artikel">Utan typ</option>
+        </select>
+        <label for="artFilterStatus" class="sr-only">Status</label>
+        <select id="artFilterStatus" class="kb-select">
+          <option value="">Alla statusar</option>
+          <option value="published">Publicerade</option>
+          <option value="draft">Utkast</option>
+        </select>
+        <span class="kb-record-count" id="artCount"></span>
+      </div>
+
+      <div class="kb-table-wrapper">
+        <table class="kb-table" id="articlesTable">
+          <thead>
+            <tr>
+              <th scope="col" data-sort="title" aria-sort="none"><button type="button" class="kb-th-sort">Titel</button></th>
+              <th scope="col" data-sort="typelabel" aria-sort="none"><button type="button" class="kb-th-sort">Typ</button></th>
+              <th scope="col" data-sort="topicname" aria-sort="none"><button type="button" class="kb-th-sort">Ämne</button></th>
+              <th scope="col" data-sort="published" aria-sort="none"><button type="button" class="kb-th-sort">Status</button></th>
+              <th scope="col" data-sort="featured" aria-sort="none"><button type="button" class="kb-th-sort">Utvald</button></th>
+              <th scope="col" data-sort="updated" aria-sort="descending"><button type="button" class="kb-th-sort">Uppdaterad</button></th>
+              <th scope="col" class="kb-col-actions"><span class="sr-only">Åtgärder</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for article in kbArticles %}
+              {%- assign typeLabel = article['cr5ee_artikeltyp@OData.Community.Display.V1.FormattedValue'] -%}
+{%- if typeLabel == nil or typeLabel == '' -%}{%- assign typeLabel = article.cr5ee_artikeltyp.label -%}{%- endif -%}
+{%- if typeLabel == nil or typeLabel == '' -%}{%- assign typeLabel = article.cr5ee_artikeltyp.Label -%}{%- endif -%}
+{%- assign typeKey = typeLabel | default: '' | downcase -%}
+{%- unless typeKey == 'faq' or typeKey == 'lathund' or typeKey == 'video' or typeKey == 'instruktion' -%}{%- assign typeKey = 'artikel' -%}{%- assign typeLabel = 'Artikel' -%}{%- endunless -%}
+              {%- assign rawBody = article.faq_articlebody | default: '' -%}
+              {%- assign artTopicId = article.faq_topic.id | default: '' -%}
+              {%- assign artParentId = '' -%}
+              {%- for t in kbTopics -%}
+                {%- if t.faq_topicid == artTopicId and t.faq_parenttopic -%}{%- assign artParentId = t.faq_parenttopic.id -%}{%- endif -%}
+              {%- endfor -%}
+            <tr data-id="{{ article.faq_articleid }}"
+                data-title="{{ article.faq_articletitle | escape }}"
+                data-summary="{{ article.cr5ee_sammanfattning | escape }}"
+                data-type="{{ typeKey }}"
+                data-typelabel="{{ typeLabel | escape }}"
+                data-topic="{{ artTopicId }}"
+                data-topics="{{ artTopicId }} {{ artParentId }}"
+                data-topicname="{{ article.faq_topic.name | escape }}"
+                data-video="{{ article.cr5ee_videolank | escape }}"
+                data-featured="{{ article.faq_featuredarticleorder | default: 0 }}"
+                data-published="{% if article.faq_publishedstatus %}true{% else %}false{% endif %}"
+                data-updated="{{ article.modifiedon | date: 'yyyy-MM-dd HH:mm' }}"
+                data-search="{{ article.faq_articletitle | append: ' ' | append: article.cr5ee_sammanfattning | append: ' ' | append: article.faq_topic.name | downcase | escape }}">
+              <td>
+                <button type="button" class="kb-row-title" data-action="edit-article">{{ article.faq_articletitle | escape }}</button>
+                {% if article.cr5ee_sammanfattning and article.cr5ee_sammanfattning != '' %}<div class="kb-row-sub">{{ article.cr5ee_sammanfattning | truncate: 90 | escape }}</div>{% endif %}
+                <template class="kb-body-tpl">{{ article.faq_articlebody }}</template>
+                <template class="kb-att-tpl">{% for att in kbAttachments %}{% if att.objectid.id == article.faq_articleid %}{%- capture attIdStr -%}{{ att.annotationid }}{%- endcapture -%}
+{%- assign attIdUp = attIdStr | upcase -%}
+{%- capture imgKey -%}kb-image:{{ attIdStr }}{%- endcapture -%}
+{%- capture imgKeyUp -%}kb-image:{{ attIdUp }}{%- endcapture -%}
+{%- assign attInline = false -%}
+{%- if att.subject == 'Bild i text' -%}{%- assign attInline = true -%}{%- endif -%}
+{%- if att.filename contains 'kb-bild-' -%}{%- assign attInline = true -%}{%- endif -%}
+{%- if rawBody contains imgKey or rawBody contains imgKeyUp -%}{%- assign attInline = true -%}{%- endif -%}{% unless attInline %}<span data-att-id="{{ att.annotationid }}" data-name="{{ att.filename | escape }}" data-size="{{ att.filesize | default: 0 }}"></span>{% endunless %}{% endif %}{% endfor %}</template>
+                <template class="kb-img-tpl">{% for att in kbAttachments %}{% if att.objectid.id == article.faq_articleid %}{%- capture attIdStr -%}{{ att.annotationid }}{%- endcapture -%}
+{%- assign attIdUp = attIdStr | upcase -%}
+{%- capture imgKey -%}kb-image:{{ attIdStr }}{%- endcapture -%}
+{%- capture imgKeyUp -%}kb-image:{{ attIdUp }}{%- endcapture -%}
+{%- assign attInline = false -%}
+{%- if att.subject == 'Bild i text' -%}{%- assign attInline = true -%}{%- endif -%}
+{%- if att.filename contains 'kb-bild-' -%}{%- assign attInline = true -%}{%- endif -%}
+{%- if rawBody contains imgKey or rawBody contains imgKeyUp -%}{%- assign attInline = true -%}{%- endif -%}{% if attInline %}<span data-img-id="{{ att.annotationid }}"></span>{% endif %}{% endif %}{% endfor %}</template>
+              </td>
+              <td><span class="kb-badge kb-type-{{ typeKey }}">{%- case typeKey -%}{%- when 'faq' -%}<svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 13.5c3.5899 0 6.5 -2.9101 6.5 -6.5C13.5 3.41015 10.5899 0.5 7 0.5 3.41015 0.5 0.5 3.41015 0.5 7c0 3.5899 2.91015 6.5 6.5 6.5Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.24963c0 -0.34612 0.10273 -0.68446 0.2952 -0.97225 0.19246 -0.28778 0.46603 -0.51208 0.78609 -0.64454 0.32006 -0.13245 0.67225 -0.1671 1.01202 -0.09958 0.33978 0.06752 0.65188 0.23419 0.89685 0.47894 0.24496 0.24474 0.41178 0.55656 0.47937 0.89602 0.06758 0.33947 0.0329 0.69133 -0.09968 1.0111 -0.13257 0.31977 -0.35708 0.59308 -0.64513 0.78537 -0.28804 0.19229 -0.6267 0.29493 -0.97313 0.29493v1.16666" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 10.4585c-0.13807 0 -0.25 -0.1119 -0.25 -0.25s0.11193 -0.25 0.25 -0.25" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 10.4585c0.13807 0 0.25 -0.1119 0.25 -0.25s-0.11193 -0.25 -0.25 -0.25" stroke-width="1"></path></g></svg>{%- when 'lathund' -%}<svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M8.5 0.5h-3c-0.55228 0 -1 0.447715 -1 1V2c0 0.55228 0.44772 1 1 1h3c0.55228 0 1 -0.44772 1 -1v-0.5c0 -0.552285 -0.44772 -1 -1 -1Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M9.75 1.5h1.5c0.2652 0 0.5196 0.10536 0.7071 0.29289 0.1875 0.18754 0.2929 0.44189 0.2929 0.70711v10c0 0.2652 -0.1054 0.5196 -0.2929 0.7071s-0.4419 0.2929 -0.7071 0.2929h-8.5c-0.26522 0 -0.51957 -0.1054 -0.70711 -0.2929 -0.18753 -0.1875 -0.29289 -0.4419 -0.29289 -0.7071v-10c0 -0.26522 0.10536 -0.51957 0.29289 -0.70711C2.23043 1.60536 2.48478 1.5 2.75 1.5h1.5" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m5 9 1.5 1 3 -4" stroke-width="1"></path></g></svg>{%- when 'video' -%}<svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M13.23 6.2463c0.1658 0.20672 0.2576 0.47529 0.2576 0.75376s-0.0918 0.54704 -0.2576 0.75376c-1.05 1.27127 -3.44003 3.74628 -6.23003 3.74628s-5.18 -2.47501 -6.230002 -3.74628c-0.16584 -0.20672 -0.257639 -0.47529 -0.257639 -0.75376s0.091799 -0.54704 0.257639 -0.75376C1.81997 4.97503 4.20997 2.5 6.99997 2.5S12.18 4.97503 13.23 6.2463Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 9c1.10457 0 2 -0.89543 2 -2s-0.89543 -2 -2 -2 -2 0.89543 -2 2 0.89543 2 2 2Z" stroke-width="1"></path></g></svg>{%- when 'instruktion' -%}<svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7.00002 13.4999c-1.46476 -1.6127 -3.45121 -2.6572 -5.61 -2.95 -0.24572 -0.0272 -0.472659 -0.1445 -0.637017 -0.3291 -0.164358 -0.1847 -0.254484 -0.42371 -0.252985 -0.67092v-8.05c-0.000009 -0.14444 0.031272 -0.28717 0.091692 -0.41837C0.652129 0.950317 0.740253 0.833766 0.850018 0.739879 0.95785 0.6477 1.08406 0.579519 1.22027 0.539864c0.1362 -0.039655 0.27929 -0.049876 0.41975 -0.029985 2.06429 0.342607 3.95272 1.371381 5.36 2.920001V13.4999Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 13.4999c1.46476 -1.6127 3.4512 -2.6572 5.61 -2.95 0.2457 -0.0272 0.4727 -0.1445 0.637 -0.3291 0.1644 -0.1847 0.2545 -0.42371 0.253 -0.67092v-8.05c0 -0.14444 -0.0313 -0.28717 -0.0917 -0.41837 -0.0604 -0.131193 -0.1485 -0.247744 -0.2583 -0.341631 -0.1078 -0.092179 -0.234 -0.16036 -0.3702 -0.200015 -0.1363 -0.039655 -0.2793 -0.049876 -0.4198 -0.029985C10.2957 0.852486 8.40728 1.88126 7 3.42988V13.4999Z" stroke-width="1"></path></g></svg>{%- else -%}<svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M9 2.5H3c-0.55228 0 -1 0.44772 -1 1v9c0 0.5523 0.44772 1 1 1h6c0.55228 0 1 -0.4477 1 -1v-9c0 -0.55228 -0.44772 -1 -1 -1Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M4 5h4" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M4 7.5h4" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M4 10h2" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M4.5 0.5H11c0.2652 0 0.5196 0.105357 0.7071 0.292893C11.8946 0.98043 12 1.23478 12 1.5V11" stroke-width="1"></path></g></svg>{%- endcase -%} {{ typeLabel | escape }}</span></td>
+              <td>{{ article.faq_topic.name | default: '–' | escape }}</td>
+              <td><button type="button" class="kb-status-toggle{% if article.faq_publishedstatus %} is-published{% endif %}" data-action="toggle-publish" aria-pressed="{% if article.faq_publishedstatus %}true{% else %}false{% endif %}" title="Klicka för att växla">{% if article.faq_publishedstatus %}<svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M13.23 6.2463c0.1658 0.20672 0.2576 0.47529 0.2576 0.75376s-0.0918 0.54704 -0.2576 0.75376c-1.05 1.27127 -3.44003 3.74628 -6.23003 3.74628s-5.18 -2.47501 -6.230002 -3.74628c-0.16584 -0.20672 -0.257639 -0.47529 -0.257639 -0.75376s0.091799 -0.54704 0.257639 -0.75376C1.81997 4.97503 4.20997 2.5 6.99997 2.5S12.18 4.97503 13.23 6.2463Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 9c1.10457 0 2 -0.89543 2 -2s-0.89543 -2 -2 -2 -2 0.89543 -2 2 0.89543 2 2 2Z" stroke-width="1"></path></g></svg> Publicerad{% else %}<svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M3.62914 3.6244C4.62188 2.9793 5.7722 2.5 6.99997 2.5c2.79 0 5.18003 2.47503 6.23003 3.7463 0.1658 0.20672 0.2576 0.47529 0.2576 0.75376s-0.0918 0.54704 -0.2576 0.75376c-0.5788 0.70075 -1.5648 1.76726 -2.8004 2.58338m-1.92963 0.9325c-0.48238 0.1459 -0.98436 0.2304 -1.5 0.2304 -2.79 0 -5.18 -2.47501 -6.230002 -3.74628 -0.16584 -0.20672 -0.257639 -0.47529 -0.257639 -0.75376s0.091799 -0.54704 0.257639 -0.75376c0.332672 -0.40278 0.799852 -0.92639 1.371652 -1.45383" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M8.41421 8.41427c0.78105 -0.78105 0.78105 -2.04738 0 -2.82843 -0.78105 -0.78104 -2.04737 -0.78104 -2.82842 0" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M13.5 13.5 0.5 0.5" stroke-width="1"></path></g></svg> Utkast{% endif %}</button></td>
+              <td>{% if article.faq_featuredarticleorder and article.faq_featuredarticleorder > 0 %}<span class="kb-featured-pill"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m11 13.5 -4 -4 -4 4v-12c0 -0.26522 0.10536 -0.51957 0.29289 -0.707107C3.48043 0.605357 3.73478 0.5 4 0.5h6c0.2652 0 0.5196 0.105357 0.7071 0.292893C10.8946 0.98043 11 1.23478 11 1.5v12Z" stroke-width="1"></path></g></svg> {{ article.faq_featuredarticleorder }}</span>{% else %}<span class="kb-muted">–</span>{% endif %}</td>
+              <td class="kb-nowrap">{{ article.modifiedon | date: 'yyyy-MM-dd' }}</td>
+              <td class="kb-col-actions">
+                <a class="kb-icon-btn" href="/Artiklar/?q={{ article.faq_articleid }}{% if artTopicId != '' %}&amp;t={{ artTopicId }}{% endif %}" target="_blank" rel="noopener" title="Visa artikeln"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M13.23 6.2463c0.1658 0.20672 0.2576 0.47529 0.2576 0.75376s-0.0918 0.54704 -0.2576 0.75376c-1.05 1.27127 -3.44003 3.74628 -6.23003 3.74628s-5.18 -2.47501 -6.230002 -3.74628c-0.16584 -0.20672 -0.257639 -0.47529 -0.257639 -0.75376s0.091799 -0.54704 0.257639 -0.75376C1.81997 4.97503 4.20997 2.5 6.99997 2.5S12.18 4.97503 13.23 6.2463Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 9c1.10457 0 2 -0.89543 2 -2s-0.89543 -2 -2 -2 -2 0.89543 -2 2 0.89543 2 2 2Z" stroke-width="1"></path></g></svg><span class="sr-only">Visa</span></a>
+                <button type="button" class="kb-icon-btn" data-action="edit-article" title="Redigera"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M5 12.24 0.5 13.5l1.26 -4.49998L10 0.800021c0.0931 -0.095246 0.2044 -0.170925 0.3271 -0.222592 0.1228 -0.051668 0.2547 -0.078283 0.3879 -0.078283 0.1332 0 0.2651 0.026615 0.3879 0.078283 0.1227 0.051667 0.234 0.127346 0.3271 0.222592L13.2 2.58002c0.0937 0.09296 0.1681 0.20357 0.2189 0.32542 0.0508 0.12186 0.0769 0.25257 0.0769 0.38458 0 0.13201 -0.0261 0.26272 -0.0769 0.38458 -0.0508 0.12186 -0.1252 0.23246 -0.2189 0.32542L5 12.24Z" stroke-width="1"></path></g></svg><span class="sr-only">Redigera</span></button>
+                <button type="button" class="kb-icon-btn kb-icon-btn-danger" data-action="delete-article" title="Radera"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M1 3.5h12" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M2.5 3.5h9v9c0 0.2652 -0.1054 0.5196 -0.2929 0.7071s-0.4419 0.2929 -0.7071 0.2929h-7c-0.26522 0 -0.51957 -0.1054 -0.70711 -0.2929C2.60536 13.0196 2.5 12.7652 2.5 12.5v-9Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M4.5 3.5V3c0 -0.66304 0.26339 -1.29893 0.73223 -1.76777C5.70107 0.763392 6.33696 0.5 7 0.5c0.66304 0 1.29893 0.263392 1.76777 0.73223C9.23661 1.70107 9.5 2.33696 9.5 3v0.5" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M5.5 6.50146V10.503" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M8.5 6.50146V10.503" stroke-width="1"></path></g></svg><span class="sr-only">Radera</span></button>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <div class="kb-empty" id="artEmpty" hidden>
+          <div class="kb-empty-icon" aria-hidden="true"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M8.5 0.5h-3c-0.55228 0 -1 0.447715 -1 1V2c0 0.55228 0.44772 1 1 1h3c0.55228 0 1 -0.44772 1 -1v-0.5c0 -0.552285 -0.44772 -1 -1 -1Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M9.75 1.5h1.5c0.2652 0 0.5196 0.10536 0.7071 0.29289 0.1875 0.18754 0.2929 0.44189 0.2929 0.70711v10c0 0.2652 -0.1054 0.5196 -0.2929 0.7071s-0.4419 0.2929 -0.7071 0.2929h-8.5c-0.26522 0 -0.51957 -0.1054 -0.70711 -0.2929 -0.18753 -0.1875 -0.29289 -0.4419 -0.29289 -0.7071v-10c0 -0.26522 0.10536 -0.51957 0.29289 -0.70711C2.23043 1.60536 2.48478 1.5 2.75 1.5h1.5" stroke-width="1"></path></g></svg></div>
+          <div class="kb-empty-title">Inga artiklar</div>
+          <div class="kb-empty-text">Ändra filtren eller <button type="button" class="kb-linklike" data-action="new-article">skapa en ny artikel</button>.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== ÄMNEN ===== -->
+    <section class="kb-panel" id="panelTopics" role="tabpanel" aria-labelledby="tabTopics" hidden>
+      <div class="kb-toolbar kb-toolbar-filters">
+        <div class="kb-search kb-search-sm">
+          <span class="kb-search-icon" aria-hidden="true"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M6 11.5c3.03757 0 5.5 -2.46243 5.5 -5.5S9.03757 0.5 6 0.5 0.5 2.96243 0.5 6s2.46243 5.5 5.5 5.5Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M13.5 13.5 10 10" stroke-width="1"></path></g></svg></span>
+          <label for="topicSearch" class="sr-only">Sök ämnen</label>
+          <input type="search" id="topicSearch" class="kb-search-input" placeholder="Sök ämne..." autocomplete="off" />
+        </div>
+        <span class="kb-record-count" id="topicCount"></span>
+      </div>
+
+      <div class="kb-table-wrapper">
+        <table class="kb-table" id="topicsTable">
+          <thead>
+            <tr>
+              <th scope="col">Ämne</th>
+              <th scope="col">Ordning</th>
+              <th scope="col">Status</th>
+              <th scope="col">Artiklar</th>
+              <th scope="col" class="kb-col-actions"><span class="sr-only">Åtgärder</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {%- for t in kbTopics -%}
+              {%- unless t.faq_parenttopic -%}
+                {%- assign tid = t.faq_topicid -%}
+                <tr data-id="{{ t.faq_topicid }}"
+                    data-title="{{ t.faq_topictitle | escape }}"
+                    data-desc="{{ t.faq_topicdescription | escape }}"
+                    data-parent="{{ t.faq_parenttopic.id | default: '' }}"
+                    data-order="{{ t.faq_topicorder }}"
+                    data-published="{% if t.faq_publishedstatus == false %}false{% else %}true{% endif %}"
+                    data-icon="{{ t.faq_topicicon.Url | escape }}"
+                    data-search="{{ t.faq_topictitle | append: ' ' | append: t.faq_topicdescription | downcase | escape }}"{% if t.faq_parenttopic %} class="kb-row-sub"{% endif %}>
+                  <td>
+                    <div class="kb-topic-cell">
+                      <span class="kb-topic-icon" aria-hidden="true">{% if t.faq_topicicon.Url %}<img src="{{ t.faq_topicicon.Url | escape }}" alt="" />{% else %}<svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7.00002 13.4999c-1.46476 -1.6127 -3.45121 -2.6572 -5.61 -2.95 -0.24572 -0.0272 -0.472659 -0.1445 -0.637017 -0.3291 -0.164358 -0.1847 -0.254484 -0.42371 -0.252985 -0.67092v-8.05c-0.000009 -0.14444 0.031272 -0.28717 0.091692 -0.41837C0.652129 0.950317 0.740253 0.833766 0.850018 0.739879 0.95785 0.6477 1.08406 0.579519 1.22027 0.539864c0.1362 -0.039655 0.27929 -0.049876 0.41975 -0.029985 2.06429 0.342607 3.95272 1.371381 5.36 2.920001V13.4999Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 13.4999c1.46476 -1.6127 3.4512 -2.6572 5.61 -2.95 0.2457 -0.0272 0.4727 -0.1445 0.637 -0.3291 0.1644 -0.1847 0.2545 -0.42371 0.253 -0.67092v-8.05c0 -0.14444 -0.0313 -0.28717 -0.0917 -0.41837 -0.0604 -0.131193 -0.1485 -0.247744 -0.2583 -0.341631 -0.1078 -0.092179 -0.234 -0.16036 -0.3702 -0.200015 -0.1363 -0.039655 -0.2793 -0.049876 -0.4198 -0.029985C10.2957 0.852486 8.40728 1.88126 7 3.42988V13.4999Z" stroke-width="1"></path></g></svg>{% endif %}</span>
+                      <div>
+                        <button type="button" class="kb-row-title" data-action="edit-topic">{{ t.faq_topictitle | escape }}</button>
+                        {% if t.faq_parenttopic %}<div class="kb-row-sub">Underämne till {{ t.faq_parenttopic.name | escape }}</div>{% elsif t.faq_topicdescription and t.faq_topicdescription != '' %}<div class="kb-row-sub">{{ t.faq_topicdescription | truncate: 90 | escape }}</div>{% endif %}
+                      </div>
+                    </div>
+                  </td>
+                  <td>{{ t.faq_topicorder | default: '–' }}</td>
+                  <td>{% if t.faq_publishedstatus == false %}<button type="button" class="kb-status-toggle" data-action="toggle-publish" aria-pressed="false" title="Klicka för att växla"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M3.62914 3.6244C4.62188 2.9793 5.7722 2.5 6.99997 2.5c2.79 0 5.18003 2.47503 6.23003 3.7463 0.1658 0.20672 0.2576 0.47529 0.2576 0.75376s-0.0918 0.54704 -0.2576 0.75376c-0.5788 0.70075 -1.5648 1.76726 -2.8004 2.58338m-1.92963 0.9325c-0.48238 0.1459 -0.98436 0.2304 -1.5 0.2304 -2.79 0 -5.18 -2.47501 -6.230002 -3.74628 -0.16584 -0.20672 -0.257639 -0.47529 -0.257639 -0.75376s0.091799 -0.54704 0.257639 -0.75376c0.332672 -0.40278 0.799852 -0.92639 1.371652 -1.45383" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M8.41421 8.41427c0.78105 -0.78105 0.78105 -2.04738 0 -2.82843 -0.78105 -0.78104 -2.04737 -0.78104 -2.82842 0" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M13.5 13.5 0.5 0.5" stroke-width="1"></path></g></svg> Dolt</button>{% else %}<button type="button" class="kb-status-toggle is-published" data-action="toggle-publish" aria-pressed="true" title="Klicka för att växla"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M13.23 6.2463c0.1658 0.20672 0.2576 0.47529 0.2576 0.75376s-0.0918 0.54704 -0.2576 0.75376c-1.05 1.27127 -3.44003 3.74628 -6.23003 3.74628s-5.18 -2.47501 -6.230002 -3.74628c-0.16584 -0.20672 -0.257639 -0.47529 -0.257639 -0.75376s0.091799 -0.54704 0.257639 -0.75376C1.81997 4.97503 4.20997 2.5 6.99997 2.5S12.18 4.97503 13.23 6.2463Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 9c1.10457 0 2 -0.89543 2 -2s-0.89543 -2 -2 -2 -2 0.89543 -2 2 0.89543 2 2 2Z" stroke-width="1"></path></g></svg> Publicerat</button>{% endif %}</td>
+                  <td class="kb-topic-articles">0</td>
+                  <td class="kb-col-actions">
+                    <a class="kb-icon-btn" href="/Kunskapsbank/?q={{ t.faq_topicid }}" target="_blank" rel="noopener" title="Visa ämnet"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M13.23 6.2463c0.1658 0.20672 0.2576 0.47529 0.2576 0.75376s-0.0918 0.54704 -0.2576 0.75376c-1.05 1.27127 -3.44003 3.74628 -6.23003 3.74628s-5.18 -2.47501 -6.230002 -3.74628c-0.16584 -0.20672 -0.257639 -0.47529 -0.257639 -0.75376s0.091799 -0.54704 0.257639 -0.75376C1.81997 4.97503 4.20997 2.5 6.99997 2.5S12.18 4.97503 13.23 6.2463Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 9c1.10457 0 2 -0.89543 2 -2s-0.89543 -2 -2 -2 -2 0.89543 -2 2 0.89543 2 2 2Z" stroke-width="1"></path></g></svg><span class="sr-only">Visa</span></a>
+                    <button type="button" class="kb-icon-btn" data-action="new-article-in-topic" title="Ny artikel i ämnet"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 0.5v13" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M0.5 6.95996h13" stroke-width="1"></path></g></svg><span class="sr-only">Ny artikel i ämnet</span></button>
+                    <button type="button" class="kb-icon-btn" data-action="edit-topic" title="Redigera"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M5 12.24 0.5 13.5l1.26 -4.49998L10 0.800021c0.0931 -0.095246 0.2044 -0.170925 0.3271 -0.222592 0.1228 -0.051668 0.2547 -0.078283 0.3879 -0.078283 0.1332 0 0.2651 0.026615 0.3879 0.078283 0.1227 0.051667 0.234 0.127346 0.3271 0.222592L13.2 2.58002c0.0937 0.09296 0.1681 0.20357 0.2189 0.32542 0.0508 0.12186 0.0769 0.25257 0.0769 0.38458 0 0.13201 -0.0261 0.26272 -0.0769 0.38458 -0.0508 0.12186 -0.1252 0.23246 -0.2189 0.32542L5 12.24Z" stroke-width="1"></path></g></svg><span class="sr-only">Redigera</span></button>
+                    <button type="button" class="kb-icon-btn kb-icon-btn-danger" data-action="delete-topic" title="Radera"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M1 3.5h12" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M2.5 3.5h9v9c0 0.2652 -0.1054 0.5196 -0.2929 0.7071s-0.4419 0.2929 -0.7071 0.2929h-7c-0.26522 0 -0.51957 -0.1054 -0.70711 -0.2929C2.60536 13.0196 2.5 12.7652 2.5 12.5v-9Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M4.5 3.5V3c0 -0.66304 0.26339 -1.29893 0.73223 -1.76777C5.70107 0.763392 6.33696 0.5 7 0.5c0.66304 0 1.29893 0.263392 1.76777 0.73223C9.23661 1.70107 9.5 2.33696 9.5 3v0.5" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M5.5 6.50146V10.503" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M8.5 6.50146V10.503" stroke-width="1"></path></g></svg><span class="sr-only">Radera</span></button>
+                  </td>
+                </tr>
+                {%- for s in kbTopics -%}
+                  {%- if s.faq_parenttopic and s.faq_parenttopic.id == tid -%}
+                <tr data-id="{{ s.faq_topicid }}"
+                    data-title="{{ s.faq_topictitle | escape }}"
+                    data-desc="{{ s.faq_topicdescription | escape }}"
+                    data-parent="{{ s.faq_parenttopic.id | default: '' }}"
+                    data-order="{{ s.faq_topicorder }}"
+                    data-published="{% if s.faq_publishedstatus == false %}false{% else %}true{% endif %}"
+                    data-icon="{{ s.faq_topicicon.Url | escape }}"
+                    data-search="{{ s.faq_topictitle | append: ' ' | append: s.faq_topicdescription | downcase | escape }}"{% if s.faq_parenttopic %} class="kb-row-sub"{% endif %}>
+                  <td>
+                    <div class="kb-topic-cell">
+                      <span class="kb-topic-icon" aria-hidden="true">{% if s.faq_topicicon.Url %}<img src="{{ s.faq_topicicon.Url | escape }}" alt="" />{% else %}<svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7.00002 13.4999c-1.46476 -1.6127 -3.45121 -2.6572 -5.61 -2.95 -0.24572 -0.0272 -0.472659 -0.1445 -0.637017 -0.3291 -0.164358 -0.1847 -0.254484 -0.42371 -0.252985 -0.67092v-8.05c-0.000009 -0.14444 0.031272 -0.28717 0.091692 -0.41837C0.652129 0.950317 0.740253 0.833766 0.850018 0.739879 0.95785 0.6477 1.08406 0.579519 1.22027 0.539864c0.1362 -0.039655 0.27929 -0.049876 0.41975 -0.029985 2.06429 0.342607 3.95272 1.371381 5.36 2.920001V13.4999Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 13.4999c1.46476 -1.6127 3.4512 -2.6572 5.61 -2.95 0.2457 -0.0272 0.4727 -0.1445 0.637 -0.3291 0.1644 -0.1847 0.2545 -0.42371 0.253 -0.67092v-8.05c0 -0.14444 -0.0313 -0.28717 -0.0917 -0.41837 -0.0604 -0.131193 -0.1485 -0.247744 -0.2583 -0.341631 -0.1078 -0.092179 -0.234 -0.16036 -0.3702 -0.200015 -0.1363 -0.039655 -0.2793 -0.049876 -0.4198 -0.029985C10.2957 0.852486 8.40728 1.88126 7 3.42988V13.4999Z" stroke-width="1"></path></g></svg>{% endif %}</span>
+                      <div>
+                        <button type="button" class="kb-row-title" data-action="edit-topic">{{ s.faq_topictitle | escape }}</button>
+                        {% if s.faq_parenttopic %}<div class="kb-row-sub">Underämne till {{ s.faq_parenttopic.name | escape }}</div>{% elsif s.faq_topicdescription and s.faq_topicdescription != '' %}<div class="kb-row-sub">{{ s.faq_topicdescription | truncate: 90 | escape }}</div>{% endif %}
+                      </div>
+                    </div>
+                  </td>
+                  <td>{{ s.faq_topicorder | default: '–' }}</td>
+                  <td>{% if s.faq_publishedstatus == false %}<button type="button" class="kb-status-toggle" data-action="toggle-publish" aria-pressed="false" title="Klicka för att växla"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M3.62914 3.6244C4.62188 2.9793 5.7722 2.5 6.99997 2.5c2.79 0 5.18003 2.47503 6.23003 3.7463 0.1658 0.20672 0.2576 0.47529 0.2576 0.75376s-0.0918 0.54704 -0.2576 0.75376c-0.5788 0.70075 -1.5648 1.76726 -2.8004 2.58338m-1.92963 0.9325c-0.48238 0.1459 -0.98436 0.2304 -1.5 0.2304 -2.79 0 -5.18 -2.47501 -6.230002 -3.74628 -0.16584 -0.20672 -0.257639 -0.47529 -0.257639 -0.75376s0.091799 -0.54704 0.257639 -0.75376c0.332672 -0.40278 0.799852 -0.92639 1.371652 -1.45383" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M8.41421 8.41427c0.78105 -0.78105 0.78105 -2.04738 0 -2.82843 -0.78105 -0.78104 -2.04737 -0.78104 -2.82842 0" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M13.5 13.5 0.5 0.5" stroke-width="1"></path></g></svg> Dolt</button>{% else %}<button type="button" class="kb-status-toggle is-published" data-action="toggle-publish" aria-pressed="true" title="Klicka för att växla"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M13.23 6.2463c0.1658 0.20672 0.2576 0.47529 0.2576 0.75376s-0.0918 0.54704 -0.2576 0.75376c-1.05 1.27127 -3.44003 3.74628 -6.23003 3.74628s-5.18 -2.47501 -6.230002 -3.74628c-0.16584 -0.20672 -0.257639 -0.47529 -0.257639 -0.75376s0.091799 -0.54704 0.257639 -0.75376C1.81997 4.97503 4.20997 2.5 6.99997 2.5S12.18 4.97503 13.23 6.2463Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 9c1.10457 0 2 -0.89543 2 -2s-0.89543 -2 -2 -2 -2 0.89543 -2 2 0.89543 2 2 2Z" stroke-width="1"></path></g></svg> Publicerat</button>{% endif %}</td>
+                  <td class="kb-topic-articles">0</td>
+                  <td class="kb-col-actions">
+                    <a class="kb-icon-btn" href="/Kunskapsbank/?q={{ s.faq_topicid }}" target="_blank" rel="noopener" title="Visa ämnet"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M13.23 6.2463c0.1658 0.20672 0.2576 0.47529 0.2576 0.75376s-0.0918 0.54704 -0.2576 0.75376c-1.05 1.27127 -3.44003 3.74628 -6.23003 3.74628s-5.18 -2.47501 -6.230002 -3.74628c-0.16584 -0.20672 -0.257639 -0.47529 -0.257639 -0.75376s0.091799 -0.54704 0.257639 -0.75376C1.81997 4.97503 4.20997 2.5 6.99997 2.5S12.18 4.97503 13.23 6.2463Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 9c1.10457 0 2 -0.89543 2 -2s-0.89543 -2 -2 -2 -2 0.89543 -2 2 0.89543 2 2 2Z" stroke-width="1"></path></g></svg><span class="sr-only">Visa</span></a>
+                    <button type="button" class="kb-icon-btn" data-action="new-article-in-topic" title="Ny artikel i ämnet"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 0.5v13" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M0.5 6.95996h13" stroke-width="1"></path></g></svg><span class="sr-only">Ny artikel i ämnet</span></button>
+                    <button type="button" class="kb-icon-btn" data-action="edit-topic" title="Redigera"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M5 12.24 0.5 13.5l1.26 -4.49998L10 0.800021c0.0931 -0.095246 0.2044 -0.170925 0.3271 -0.222592 0.1228 -0.051668 0.2547 -0.078283 0.3879 -0.078283 0.1332 0 0.2651 0.026615 0.3879 0.078283 0.1227 0.051667 0.234 0.127346 0.3271 0.222592L13.2 2.58002c0.0937 0.09296 0.1681 0.20357 0.2189 0.32542 0.0508 0.12186 0.0769 0.25257 0.0769 0.38458 0 0.13201 -0.0261 0.26272 -0.0769 0.38458 -0.0508 0.12186 -0.1252 0.23246 -0.2189 0.32542L5 12.24Z" stroke-width="1"></path></g></svg><span class="sr-only">Redigera</span></button>
+                    <button type="button" class="kb-icon-btn kb-icon-btn-danger" data-action="delete-topic" title="Radera"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M1 3.5h12" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M2.5 3.5h9v9c0 0.2652 -0.1054 0.5196 -0.2929 0.7071s-0.4419 0.2929 -0.7071 0.2929h-7c-0.26522 0 -0.51957 -0.1054 -0.70711 -0.2929C2.60536 13.0196 2.5 12.7652 2.5 12.5v-9Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M4.5 3.5V3c0 -0.66304 0.26339 -1.29893 0.73223 -1.76777C5.70107 0.763392 6.33696 0.5 7 0.5c0.66304 0 1.29893 0.263392 1.76777 0.73223C9.23661 1.70107 9.5 2.33696 9.5 3v0.5" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M5.5 6.50146V10.503" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M8.5 6.50146V10.503" stroke-width="1"></path></g></svg><span class="sr-only">Radera</span></button>
+                  </td>
+                </tr>
+                  {%- endif -%}
+                {%- endfor -%}
+              {%- endunless -%}
+            {%- endfor -%}
+          </tbody>
+        </table>
+        <div class="kb-empty" id="topicEmpty" hidden>
+          <div class="kb-empty-icon" aria-hidden="true"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7.47003 6.89996c-0.14833 0.06441 -0.3083 0.09764 -0.47 0.09764 -0.16171 0 -0.32168 -0.03323 -0.47 -0.09764l-5.700004 -2.64c-0.092558 -0.04668 -0.170342 -0.11814 -0.224688 -0.20642 -0.054346 -0.08828 -0.083121 -0.18991 -0.083121 -0.29358 0 -0.10367 0.028775 -0.2053 0.083121 -0.29358 0.054346 -0.08827 0.13213 -0.15973 0.224688 -0.20642L6.53003 0.599961c0.14832 -0.064407 0.30829 -0.097642 0.47 -0.097642 0.1617 0 0.32167 0.033235 0.47 0.097642L13.17 3.23996c0.0926 0.04669 0.1704 0.11815 0.2247 0.20642 0.0544 0.08828 0.0831 0.18991 0.0831 0.29358 0 0.10367 -0.0287 0.2053 -0.0831 0.29358 -0.0543 0.08828 -0.1321 0.15974 -0.2247 0.20642l-5.69997 2.66Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M13.5 7.34998 7.4 10.16c-0.13028 0.0594 -0.27181 0.0902 -0.415 0.0902 -0.14319 0 -0.28472 -0.0308 -0.415 -0.0902L0.5 7.34998" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m13.5 10.6 -6.1 2.81c-0.13028 0.0594 -0.27181 0.0902 -0.415 0.0902 -0.14319 0 -0.28472 -0.0308 -0.415 -0.0902L0.5 10.6" stroke-width="1"></path></g></svg></div>
+          <div class="kb-empty-title">Inga ämnen</div>
+          <div class="kb-empty-text"><button type="button" class="kb-linklike" data-action="new-topic">Skapa det första ämnet</button> – artiklar sorteras under ämnen.</div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- ===== ARTIKELFORMULÄR ===== -->
+<div class="kb-modal-overlay" id="articleModal" hidden>
+  <div class="kb-modal kb-modal-lg" role="dialog" aria-modal="true" aria-labelledby="articleModalTitle">
+    <div class="kb-modal-header">
+      <h2 id="articleModalTitle">Ny artikel</h2>
+      <button type="button" class="kb-modal-close" data-close aria-label="Stäng"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m13.5 0.5 -13 13" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m0.5 0.5 13 13" stroke-width="1"></path></g></svg></button>
+    </div>
+    <form class="kb-modal-body" id="articleForm" novalidate>
+      <div class="kb-form-grid">
+        <div class="kb-field kb-field-full">
+          <label for="afTitle">Titel <span class="kb-req" aria-hidden="true">*</span></label>
+          <input type="text" id="afTitle" class="kb-input" maxlength="200" required />
+        </div>
+        <div class="kb-field">
+          <label for="afType">Typ <span class="kb-req" aria-hidden="true">*</span></label>
+          <select id="afType" class="kb-input" required>
+            <option value="">Välj typ...</option>
+            <option value="faq">FAQ</option>
+            <option value="lathund">Lathund</option>
+            <option value="video">Video</option>
+            <option value="instruktion">Instruktion</option>
+          </select>
+        </div>
+        <div class="kb-field">
+          <label for="afTopic">Ämne <span class="kb-req" aria-hidden="true">*</span></label>
+          <select id="afTopic" class="kb-input" required>
+            <option value="">Välj ämne...</option>
+            {%- for t in kbTopics -%}{%- unless t.faq_parenttopic -%}
+            <option value="{{ t.faq_topicid }}">{{ t.faq_topictitle | escape }}</option>
+            {%- for s in kbTopics -%}{%- if s.faq_parenttopic and s.faq_parenttopic.id == t.faq_topicid -%}
+            <option value="{{ s.faq_topicid }}">&nbsp;&nbsp;– {{ s.faq_topictitle | escape }}</option>
+            {%- endif -%}{%- endfor -%}
+          {%- endunless -%}{%- endfor -%}
+          </select>
+        </div>
+        <div class="kb-field kb-field-full">
+          <label for="afSummary">Sammanfattning</label>
+          <textarea id="afSummary" class="kb-input" rows="2" maxlength="500"></textarea>
+          <div class="kb-hint">Visas i listan och överst i artikeln. För FAQ: en kort version av svaret.</div>
+        </div>
+        <div class="kb-field kb-field-full">
+          <label for="afVideo">Video från Mediaflow</label>
+          <input type="text" id="afVideo" class="kb-input" placeholder="Klistra in Mediaflows delningslänk eller inbäddningskod" autocomplete="off" />
+          <div class="kb-hint" id="afVideoHint">Inbäddningskoden (&lt;iframe ...&gt;) går också bra – adressen plockas ut automatiskt.</div>
+          <div class="kb-video-preview" id="afVideoPreview" hidden></div>
+        </div>
+        <div class="kb-field kb-field-full">
+          <span class="kb-label" id="afBodyLabel">Innehåll</span>
+          <div class="kb-editor">
+            <div class="kb-editor-toolbar" role="toolbar" aria-label="Formatering">
+              <button type="button" data-cmd="h2" title="Rubrik">Rubrik</button>
+              <button type="button" data-cmd="h3" title="Underrubrik">Underrubrik</button>
+              <button type="button" data-cmd="p" title="Brödtext">Text</button>
+              <span class="kb-editor-sep" aria-hidden="true"></span>
+              <button type="button" data-cmd="bold" title="Fet (Ctrl+B)"><strong>F</strong></button>
+              <button type="button" data-cmd="italic" title="Kursiv (Ctrl+I)"><em>K</em></button>
+              <button type="button" data-cmd="insertUnorderedList" title="Punktlista"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M1 3c0.27614 0 0.5 -0.22386 0.5 -0.5S1.27614 2 1 2c-0.276142 0 -0.5 0.22386 -0.5 0.5s0.223858 0.5 0.5 0.5Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M4.5 2.5h9" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M1 7.5c0.27614 0 0.5 -0.22386 0.5 -0.5s-0.22386 -0.5 -0.5 -0.5c-0.276142 0 -0.5 0.22386 -0.5 0.5s0.223858 0.5 0.5 0.5Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M4.5 7h9" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M1 12c0.27614 0 0.5 -0.2239 0.5 -0.5S1.27614 11 1 11c-0.276142 0 -0.5 0.2239 -0.5 0.5s0.223858 0.5 0.5 0.5Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M4.5 11.5h9" stroke-width="1"></path></g></svg></button>
+              <button type="button" data-cmd="insertOrderedList" title="Numrerad lista">1.</button>
+              <button type="button" data-cmd="link" title="Länk"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m6 3 1.46436 -1.46447c1.38071 -1.380708 3.61924 -1.380708 5.00004 0 1.3807 1.38072 1.3807 3.61929 0 5.00001L11 8" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m8.00001 11 -1.46435 1.4645c-1.38072 1.3807 -3.61929 1.3807 -5 0 -1.380717 -1.3807 -1.380716 -3.61932 0 -5.00004L3.00001 6" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M9 5 5 9" stroke-width="1"></path></g></svg></button>
+              <button type="button" data-cmd="image" title="Infoga bild – du kan också klistra in eller dra hit en bild"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M10.9014 13.2502 5.3 8.00366c-0.0966 -0.08045 -0.21833 -0.12451 -0.34404 -0.12451 -0.12571 0 -0.24745 0.04406 -0.34404 0.12451L0.515715 10.9495" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M9.85938 7.87915c-0.82843 0 -1.5 -0.67157 -1.5 -1.5s0.67157 -1.5 1.5 -1.5c0.82842 0 1.50002 0.67157 1.50002 1.5s-0.6716 1.5 -1.50002 1.5Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M0.5 12.2502V1.75018c0 -0.26522 0.105357 -0.51957 0.292893 -0.70711C0.98043 0.855537 1.23478 0.75018 1.5 0.75018h3.69c0.22843 -0.006655 0.45226 0.065133 0.63421 0.203414 0.18194 0.138276 0.31104 0.334706 0.36579 0.556586l0.31 1.24h6c0.2652 0 0.5196 0.10536 0.7071 0.29289 0.1875 0.18754 0.2929 0.44189 0.2929 0.70711v8.50002c0 0.2652 -0.1054 0.5196 -0.2929 0.7071s-0.4419 0.2929 -0.7071 0.2929h-11c-0.26522 0 -0.51957 -0.1054 -0.707107 -0.2929C0.605357 12.7698 0.5 12.5154 0.5 12.2502Z" stroke-width="1"></path></g></svg> Bild</button>
+              <button type="button" data-cmd="removeFormat" title="Ta bort formatering">Rensa</button>
+              <span class="kb-editor-sep" aria-hidden="true"></span>
+              <button type="button" data-cmd="source" title="Visa HTML" aria-pressed="false">&lt;/&gt;</button>
+            </div>
+            <div class="kb-editor-area kb-content-body" id="afBody" contenteditable="true" role="textbox" aria-multiline="true" aria-labelledby="afBodyLabel"></div>
+            <textarea class="kb-editor-source" id="afBodySource" aria-label="HTML-källkod" hidden></textarea>
+            <input type="file" id="afImageInput" accept="image/png,image/jpeg,image/gif,image/webp" multiple hidden />
+          </div>
+          <div class="kb-hint">Bilder: klicka på Bild, klistra in en skärmdump (Ctrl+V) eller dra in en bildfil i texten. Stora bilder förminskas automatiskt.</div>
+        </div>
+        <div class="kb-field">
+          <label for="afFeatured">Utvald – ordning</label>
+          <input type="number" id="afFeatured" class="kb-input" min="0" step="1" placeholder="Tomt = inte utvald" />
+          <div class="kb-hint">Utvalda visas överst i kunskapsbanken, lägst nummer först.</div>
+        </div>
+        <div class="kb-field">
+          <span class="kb-label">Status</span>
+          <label class="kb-switch">
+            <input type="checkbox" id="afPublished" />
+            <span class="kb-switch-track" aria-hidden="true"></span>
+            <span class="kb-switch-text">Publicerad</span>
+          </label>
+          <div class="kb-hint">Utkast syns bara för administratörer.</div>
+        </div>
+        <div class="kb-field kb-field-full">
+          <span class="kb-label"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m12.8581 6.7867 -5.87959 5.929c-0.22813 0.2324 -0.50031 0.4171 -0.80062 0.5431 -0.30031 0.1261 -0.62274 0.191 -0.94843 0.191 -0.3257 0 -0.64812 -0.0649 -0.94844 -0.191 -0.30031 -0.126 -0.57249 -0.3107 -0.80061 -0.5431l-1.75894 -1.7886c-0.46046 -0.4677 -0.71854 -1.09766 -0.71854 -1.75398 0 -0.65631 0.25808 -1.28631 0.71854 -1.75399L7.98644 1.1344c0.18372 -0.185239 0.40231 -0.332266 0.64314 -0.432602 0.24084 -0.100335 0.49915 -0.151993 0.76005 -0.151993s0.51922 0.051658 0.76007 0.151993c0.2408 0.100336 0.4594 0.247363 0.6431 0.432602l0.7016 0.7016c0.1853 0.18372 0.3323 0.40231 0.4326 0.64314 0.1004 0.24083 0.152 0.49915 0.152 0.76005s-0.0516 0.51922 -0.152 0.76005c-0.1003 0.24084 -0.2473 0.45942 -0.4326 0.64314L5.94094 10.2156c-0.09187 0.0927 -0.20116 0.1662 -0.32158 0.2163 -0.12041 0.0502 -0.24957 0.076 -0.38002 0.076 -0.13045 0 -0.25961 -0.0258 -0.38003 -0.076 -0.12041 -0.0501 -0.22971 -0.1236 -0.32157 -0.2163l-0.34586 -0.3557c-0.09262 -0.09187 -0.16613 -0.20116 -0.2163 -0.32158 -0.05016 -0.12041 -0.07599 -0.24957 -0.07599 -0.38002 0 -0.13045 0.02583 -0.25961 0.07599 -0.38003 0.05017 -0.12041 0.12368 -0.22971 0.2163 -0.32157l3.72539 -3.69574" stroke-width="1"></path></g></svg> Bilagor</span>
+          <ul class="kb-att-list" id="afAttList"></ul>
+          <input type="file" id="afFiles" multiple />
+          <div class="kb-hint">Nya filer laddas upp när du sparar. PDF passar bra för lathundar.</div>
+        </div>
+      </div>
+      <div class="kb-form-status" id="afStatus" role="alert"></div>
+    </form>
+    <div class="kb-modal-footer">
+      <button type="button" class="kb-btn kb-btn-secondary" data-close>Avbryt</button>
+      <button type="button" class="kb-btn kb-btn-primary" id="afSave"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M0.5 8.55005 3.23 12.06c0.09212 0.1197 0.21016 0.217 0.34525 0.2846 0.13509 0.0675 0.28373 0.1036 0.43475 0.1054 0.14859 0.0018 0.2957 -0.0297 0.43063 -0.0919 0.13492 -0.0623 0.25427 -0.1539 0.34937 -0.2681L13.5 1.55005" stroke-width="1"></path></g></svg> Spara</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== ÄMNESFORMULÄR ===== -->
+<div class="kb-modal-overlay" id="topicModal" hidden>
+  <div class="kb-modal" role="dialog" aria-modal="true" aria-labelledby="topicModalTitle">
+    <div class="kb-modal-header">
+      <h2 id="topicModalTitle">Nytt ämne</h2>
+      <button type="button" class="kb-modal-close" data-close aria-label="Stäng"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m13.5 0.5 -13 13" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m0.5 0.5 13 13" stroke-width="1"></path></g></svg></button>
+    </div>
+    <form class="kb-modal-body" id="topicForm" novalidate>
+      <div class="kb-form-grid">
+        <div class="kb-field kb-field-full">
+          <label for="tfTitle">Namn <span class="kb-req" aria-hidden="true">*</span></label>
+          <input type="text" id="tfTitle" class="kb-input" maxlength="200" required />
+        </div>
+        <div class="kb-field kb-field-full">
+          <label for="tfDesc">Beskrivning</label>
+          <textarea id="tfDesc" class="kb-input" rows="3" maxlength="2000"></textarea>
+          <div class="kb-hint">Visas överst när ämnet är valt i kunskapsbanken.</div>
+        </div>
+        <div class="kb-field">
+          <label for="tfParent">Överordnat ämne</label>
+          <select id="tfParent" class="kb-input">
+            <option value="">Inget – huvudämne</option>
+            {%- for t in kbTopics -%}{%- unless t.faq_parenttopic -%}
+            <option value="{{ t.faq_topicid }}">{{ t.faq_topictitle | escape }}</option>
+          {%- endunless -%}{%- endfor -%}
+          </select>
+          <div class="kb-hint" id="tfParentHint">Välj ett ämne för att göra detta till ett underämne.</div>
+        </div>
+        <div class="kb-field">
+          <label for="tfOrder">Ordning</label>
+          <input type="number" id="tfOrder" class="kb-input" min="0" step="1" placeholder="t.ex. 10" />
+          <div class="kb-hint">Lägst nummer visas först.</div>
+        </div>
+        <div class="kb-field">
+          <span class="kb-label">Status</span>
+          <label class="kb-switch">
+            <input type="checkbox" id="tfPublished" />
+            <span class="kb-switch-track" aria-hidden="true"></span>
+            <span class="kb-switch-text">Publicerat</span>
+          </label>
+        </div>
+        <div class="kb-field">
+          <label for="tfIcon">Ikon (bild, valfritt)</label>
+          <div class="kb-icon-current" id="tfIconCurrent" hidden><img src="" alt="Nuvarande ikon" /></div>
+          <input type="file" id="tfIcon" accept="image/png,image/jpeg,image/svg+xml,image/gif,image/webp" />
+          <div class="kb-hint">Utan bild används en standardikon.</div>
+        </div>
+      </div>
+      <div class="kb-form-status" id="tfStatus" role="alert"></div>
+    </form>
+    <div class="kb-modal-footer">
+      <button type="button" class="kb-btn kb-btn-secondary" data-close>Avbryt</button>
+      <button type="button" class="kb-btn kb-btn-primary" id="tfSave"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M0.5 8.55005 3.23 12.06c0.09212 0.1197 0.21016 0.217 0.34525 0.2846 0.13509 0.0675 0.28373 0.1036 0.43475 0.1054 0.14859 0.0018 0.2957 -0.0297 0.43063 -0.0919 0.13492 -0.0623 0.25427 -0.1539 0.34937 -0.2681L13.5 1.55005" stroke-width="1"></path></g></svg> Spara</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== BEKRÄFTELSE ===== -->
+<div class="kb-modal-overlay" id="confirmModal" hidden>
+  <div class="kb-modal kb-modal-sm" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmText">
+    <div class="kb-modal-header kb-modal-header-danger">
+      <h2 id="confirmTitle">Är du säker?</h2>
+    </div>
+    <div class="kb-modal-body">
+      <p id="confirmText"></p>
+    </div>
+    <div class="kb-modal-footer">
+      <button type="button" class="kb-btn kb-btn-secondary" data-confirm="no">Avbryt</button>
+      <button type="button" class="kb-btn kb-btn-danger" data-confirm="yes"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M1 3.5h12" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M2.5 3.5h9v9c0 0.2652 -0.1054 0.5196 -0.2929 0.7071s-0.4419 0.2929 -0.7071 0.2929h-7c-0.26522 0 -0.51957 -0.1054 -0.70711 -0.2929C2.60536 13.0196 2.5 12.7652 2.5 12.5v-9Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M4.5 3.5V3c0 -0.66304 0.26339 -1.29893 0.73223 -1.76777C5.70107 0.763392 6.33696 0.5 7 0.5c0.66304 0 1.29893 0.263392 1.76777 0.73223C9.23661 1.70107 9.5 2.33696 9.5 3v0.5" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M5.5 6.50146V10.503" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M8.5 6.50146V10.503" stroke-width="1"></path></g></svg> <span id="confirmYesText">Radera</span></button>
+    </div>
+  </div>
+</div>
+
+{% include 'Portal Web API Wrapper' %}
+
+{% else %}
+<div class="kb-page kb-admin">
+  <div class="kb-container">
+    <div class="kb-empty kb-empty-page">
+      <div class="kb-empty-icon" aria-hidden="true"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7.35359 13.3836c-0.22977 0.0886 -0.4843 0.0886 -0.71407 0v0c-1.79285 -0.6884 -3.33473 -1.9043 -4.42196 -3.48738C1.13032 8.31318 0.548888 6.43757 0.550051 4.51713V1.54182c0 -0.26303 0.104489 -0.5153 0.290482 -0.701288 0.185997 -0.185993 0.438257 -0.290483 0.701287 -0.290483H12.4513c0.263 0 0.5153 0.10449 0.7013 0.290483 0.186 0.185988 0.2905 0.438258 0.2905 0.701288v2.97531c0.0011 1.92044 -0.5803 3.79605 -1.6675 5.37909 -1.0873 1.58308 -2.62915 2.79898 -4.42201 3.48738v0Z" stroke-width="1"></path></g></svg></div>
+      <div class="kb-empty-title">Endast för administratörer</div>
+      <div class="kb-empty-text">Du behöver rollen Administratör för att redigera kunskapsbanken. <a href="/Kunskapsbank/">Gå till kunskapsbanken</a></div>
+    </div>
+  </div>
+</div>
+{% endif %}

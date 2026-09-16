@@ -1,0 +1,25 @@
+<main>
+  <div class="categories-header">
+    <div class="cat-searchContainer">
+      <button onclick="search()" style="display: contents;"><img id="cat-searchIcon" src="/Articles/search-icon.png" alt="sökikon" /></button> <input onkeypress="searchEnter(event)" id="cat-search-input-home" type="text" placeholder="Search questions, keywords, articles" />
+    </div>
+  </div>
+  <script>
+    document.getElementById('cat-search-input-home').value = window.sessionStorage.getItem("query");
+    function search() {
+      var searchQuery = document.getElementById('cat-search-input-home').value;
+      window.sessionStorage.setItem("query", searchQuery);
+      window.location.href = '/search-query/?search=' + searchQuery;
+    }
+
+    function searchEnter(e) {
+      if (event.keyCode == 13) {
+        search(e);
+      }
+    }
+  </script>
+  {% include 'Search Container' articles_query_text:'The articles found were:' topics_query_text:'The topics found were:' %}
+</main>
+<div class="row sectionBlockLayout text-start" style="display: none; flex-wrap: wrap; margin: 0px; min-height: auto; padding: 8px;">
+  <div class="container" style="padding: 0px; display: flex; flex-wrap: wrap;"><div class="col-lg-12 columnBlockLayout" style="flex-grow: 1; display: flex; flex-direction: column; min-width: 300px;"></div></div>
+</div>

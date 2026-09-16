@@ -1,0 +1,652 @@
+{% comment %}
+Projekt - Projektvy för ärendehantering
+Visa ärenden grupperade per projekt
+{% endcomment %}
+
+{%- assign selectedProjectId = request.params.project | default: '' -%}
+
+{% comment %}Hämta alla projekt{% endcomment %}
+{% fetchxml projektSet %}
+<fetch version="1.0" mapping="logical">
+  <entity name="cr5ee_projekt">
+    <attribute name="cr5ee_projektid" />
+    <attribute name="cr5ee_namn" />
+    <attribute name="cr5ee_beskrivning" />
+    <attribute name="cr5ee_status" />
+  </entity>
+</fetch>
+{% endfetchxml %}
+
+{% assign projekt = projektSet.results.entities %}
+
+{% comment %}Hämta alla ärenden med projekt-koppling{% endcomment %}
+{% fetchxml arendenSet %}
+<fetch version="1.0" mapping="logical">
+  <entity name="cr5ee_arenden">
+    <attribute name="cr5ee_arendenid" />
+    <attribute name="cr5ee_arendeid" />
+    <attribute name="cr5ee_name" />
+    <attribute name="cr5ee_prioritet" />
+    <attribute name="cr5ee_status" />
+    <attribute name="cr5ee_projekt" />
+    <attribute name="cr5ee_typ" />
+    <attribute name="createdon" />
+    <order attribute="createdon" descending="true" />
+  </entity>
+</fetch>
+{% endfetchxml %}
+
+{% assign allArenden = arendenSet.results.entities %}
+
+<style>
+  /* === PROJEKT PAGE STYLES === */
+  :root {
+    --brand-primary: #E47203;
+    --brand-secondary: #f18e35;
+    --brand-dark: #333333;
+    --brand-teal: #33bdc6;
+    --gray-light: #DCDCDC;
+    --gray-bg: #f5f5f5;
+  }
+
+  .projekt-page {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--gray-bg);
+    min-height: calc(100vh - 120px);
+    padding: 24px;
+  }
+
+  /* Header */
+  .projekt-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .projekt-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .projekt-title h1 {
+    margin: 0;
+    font-size: 24px;
+    color: var(--brand-dark);
+  }
+
+  .projekt-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 18px;
+    background: var(--brand-primary);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s ease;
+  }
+
+  .projekt-btn:hover {
+    background: var(--brand-secondary);
+    color: white;
+    text-decoration: none;
+  }
+
+  /* Layout */
+  .projekt-layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 24px;
+  }
+
+  @media (max-width: 991px) {
+    .projekt-layout {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* Project List */
+  .projekt-sidebar {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+
+  .projekt-sidebar-header {
+    background: var(--brand-dark);
+    color: white;
+    padding: 16px;
+    font-weight: 600;
+    font-size: 14px;
+  }
+
+  .projekt-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .projekt-item {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--gray-light);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .projekt-item:hover {
+    background: #fafafa;
+  }
+
+  .projekt-item.active {
+    background: rgba(228, 114, 3, 0.1);
+    border-left: 3px solid var(--brand-primary);
+  }
+
+  .projekt-item-name {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--brand-dark);
+    margin-bottom: 4px;
+  }
+
+  .projekt-item-stats {
+    font-size: 12px;
+    color: #888;
+  }
+
+  .projekt-item-status {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    margin-top: 4px;
+  }
+
+  .projekt-item-status.aktiv {
+    background: #dcfce7;
+    color: #16a34a;
+  }
+
+  .projekt-item-status.arkiverad {
+    background: #f3f4f6;
+    color: #6b7280;
+  }
+
+  /* Project Detail */
+  .projekt-main {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+
+  .projekt-main-header {
+    background: linear-gradient(135deg, var(--brand-teal), #20a4a8);
+    color: white;
+    padding: 24px;
+  }
+
+  .projekt-main-title {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0 0 8px 0;
+  }
+
+  .projekt-main-desc {
+    font-size: 14px;
+    opacity: 0.9;
+    margin-bottom: 16px;
+  }
+
+  .projekt-main-stats {
+    display: flex;
+    gap: 24px;
+  }
+
+  .projekt-stat {
+    text-align: center;
+  }
+
+  .projekt-stat-number {
+    font-size: 24px;
+    font-weight: 700;
+  }
+
+  .projekt-stat-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    opacity: 0.8;
+  }
+
+  /* Issue List */
+  .projekt-issues {
+    padding: 24px;
+  }
+
+  .projekt-issues-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+
+  .projekt-issues-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--brand-dark);
+  }
+
+  .issue-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .issue-item {
+    display: flex;
+    align-items: center;
+    padding: 14px 16px;
+    border: 1px solid var(--gray-light);
+    border-radius: 8px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .issue-item:hover {
+    background: #fafafa;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+
+  .issue-id {
+    font-weight: 700;
+    color: var(--brand-primary);
+    min-width: 100px;
+  }
+
+  .issue-title {
+    flex: 1;
+    font-size: 14px;
+    color: var(--brand-dark);
+    margin: 0 16px;
+  }
+
+  .issue-meta {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .priority-badge {
+    display: inline-flex;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+  }
+
+  .priority-badge.kritisk { background: #fee2e2; color: #dc2626; }
+  .priority-badge.hög { background: #fef3c7; color: #d97706; }
+  .priority-badge.normal { background: #dbeafe; color: #2563eb; }
+  .priority-badge.låg { background: #d1fae5; color: #059669; }
+
+  .status-badge {
+    display: inline-flex;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+  }
+
+  .status-badge.ny { background: #e0e7ff; color: #4338ca; }
+  .status-badge.aktiv { background: #dbeafe; color: #2563eb; }
+  .status-badge.pågående { background: #fef3c7; color: #d97706; }
+  .status-badge.klar { background: #dcfce7; color: #16a34a; }
+
+  /* Empty State */
+  .projekt-empty {
+    text-align: center;
+    padding: 60px 24px;
+    color: #888;
+  }
+
+  .projekt-empty-icon {
+    font-size: 64px;
+    margin-bottom: 16px;
+    opacity: 0.4;
+  }
+
+  .projekt-empty-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--brand-dark);
+    margin-bottom: 8px;
+  }
+
+  /* Create Project Form */
+  .create-projekt-form {
+    display: none;
+    padding: 24px;
+    background: white;
+    border-radius: 12px;
+    margin-bottom: 24px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+
+  .create-projekt-form.show {
+    display: block;
+  }
+
+  .form-group {
+    margin-bottom: 16px;
+  }
+
+  .form-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--brand-dark);
+    margin-bottom: 6px;
+  }
+
+  .form-input,
+  .form-textarea {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid var(--gray-light);
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: inherit;
+  }
+
+  .form-input:focus,
+  .form-textarea:focus {
+    outline: none;
+    border-color: var(--brand-primary);
+    box-shadow: 0 0 0 3px rgba(228, 114, 3, 0.1);
+  }
+
+  .form-textarea {
+    min-height: 80px;
+    resize: vertical;
+  }
+
+  .form-actions {
+    display: flex;
+    gap: 12px;
+  }
+
+  .projekt-btn-secondary {
+    background: white;
+    color: var(--brand-dark);
+    border: 1px solid var(--gray-light);
+    padding: 10px 18px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .projekt-btn-secondary:hover {
+    border-color: var(--brand-primary);
+    color: var(--brand-primary);
+  }
+</style>
+
+<div class="projekt-page">
+  <!-- Header -->
+  <div class="projekt-header">
+    <div class="projekt-title">
+      <h1>📁 Projekt</h1>
+    </div>
+    <button class="projekt-btn" id="btnNewProject">
+      + Nytt Projekt
+    </button>
+  </div>
+
+  <!-- Create Project Form -->
+  <div class="create-projekt-form" id="createProjectForm">
+    <h3 style="margin: 0 0 16px 0; color: var(--brand-dark);">Skapa nytt projekt</h3>
+    <form id="projectForm">
+      <div class="form-group">
+        <label class="form-label">Projekt-namn</label>
+        <input type="text" class="form-input" id="projectName" required placeholder="t.ex. Fast2 Desktop" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Beskrivning</label>
+        <textarea class="form-textarea" id="projectDesc" placeholder="Beskriv projektet..."></textarea>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="projekt-btn">Spara projekt</button>
+        <button type="button" class="projekt-btn-secondary" id="btnCancelProject">Avbryt</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Layout -->
+  <div class="projekt-layout">
+    <!-- Sidebar -->
+    <div class="projekt-sidebar">
+      <div class="projekt-sidebar-header">
+        📂 Alla Projekt
+      </div>
+      <ul class="projekt-list">
+        {% if projekt and projekt.size > 0 %}
+          {% for p in projekt %}
+            {%- assign status_label = p['cr5ee_status@OData.Community.Display.V1.FormattedValue'] -%}
+            {%- assign issue_count = 0 -%}
+            {%- for arende in allArenden -%}
+              {%- if arende.cr5ee_projekt -%}
+                {%- assign proj_id = arende.cr5ee_projekt.id -%}
+                {%- if proj_id == p.cr5ee_projektid -%}
+                  {%- assign issue_count = issue_count | plus: 1 -%}
+                {%- endif -%}
+              {%- endif -%}
+            {%- endfor -%}
+            <li class="projekt-item {% if selectedProjectId == p.cr5ee_projektid %}active{% endif %}" 
+                data-id="{{ p.cr5ee_projektid }}">
+              <div class="projekt-item-name">{{ p.cr5ee_namn }}</div>
+              <div class="projekt-item-stats">{{ issue_count }} ärenden</div>
+              {% if status_label %}
+                <span class="projekt-item-status {{ status_label | downcase }}">{{ status_label }}</span>
+              {% endif %}
+            </li>
+          {% endfor %}
+        {% else %}
+          <li class="projekt-item">
+            <div class="projekt-empty">
+              <p>Inga projekt finns ännu</p>
+            </div>
+          </li>
+        {% endif %}
+      </ul>
+    </div>
+
+    <!-- Main Content -->
+    <div class="projekt-main">
+      {% if selectedProjectId != '' %}
+        {% for p in projekt %}
+          {% if p.cr5ee_projektid == selectedProjectId %}
+            {%- assign status_label = p['cr5ee_status@OData.Community.Display.V1.FormattedValue'] -%}
+            
+            <div class="projekt-main-header">
+              <h2 class="projekt-main-title">{{ p.cr5ee_namn }}</h2>
+              {% if p.cr5ee_beskrivning %}
+                <div class="projekt-main-desc">{{ p.cr5ee_beskrivning }}</div>
+              {% endif %}
+              
+              {% comment %}Räkna ärenden per status{% endcomment %}
+              {%- assign count_aktiv = 0 -%}
+              {%- assign count_pågående = 0 -%}
+              {%- assign count_klar = 0 -%}
+              {%- assign project_issues = '' | split: '' -%}
+              
+              {%- for arende in allArenden -%}
+                {%- if arende.cr5ee_projekt -%}
+                  {%- assign proj_id = arende.cr5ee_projekt.id -%}
+                  {%- if proj_id == selectedProjectId -%}
+                    {%- assign project_issues = project_issues | push: arende -%}
+                    {%- assign arende_status = arende['cr5ee_status@OData.Community.Display.V1.FormattedValue'] -%}
+                    {%- if arende_status == 'Aktiv' or arende_status == 'Ny' -%}
+                      {%- assign count_aktiv = count_aktiv | plus: 1 -%}
+                    {%- elsif arende_status == 'Pågående' -%}
+                      {%- assign count_pågående = count_pågående | plus: 1 -%}
+                    {%- elsif arende_status == 'Klar' or arende_status == 'Slutförd' -%}
+                      {%- assign count_klar = count_klar | plus: 1 -%}
+                    {%- endif -%}
+                  {%- endif -%}
+                {%- endif -%}
+              {%- endfor -%}
+              
+              <div class="projekt-main-stats">
+                <div class="projekt-stat">
+                  <div class="projekt-stat-number">{{ count_aktiv }}</div>
+                  <div class="projekt-stat-label">Öppna</div>
+                </div>
+                <div class="projekt-stat">
+                  <div class="projekt-stat-number">{{ count_pågående }}</div>
+                  <div class="projekt-stat-label">Pågående</div>
+                </div>
+                <div class="projekt-stat">
+                  <div class="projekt-stat-number">{{ count_klar }}</div>
+                  <div class="projekt-stat-label">Klara</div>
+                </div>
+                <div class="projekt-stat">
+                  <div class="projekt-stat-number">{{ project_issues.size }}</div>
+                  <div class="projekt-stat-label">Totalt</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="projekt-issues">
+              <div class="projekt-issues-header">
+                <h3 class="projekt-issues-title">📋 Ärenden i projektet</h3>
+              </div>
+              
+              {% if project_issues.size > 0 %}
+                <ul class="issue-list">
+                  {% for arende in project_issues %}
+                    {%- assign prio_label = arende['cr5ee_prioritet@OData.Community.Display.V1.FormattedValue'] -%}
+                    {%- assign status_label2 = arende['cr5ee_status@OData.Community.Display.V1.FormattedValue'] -%}
+                    <li class="issue-item" onclick="window.location.href='/Ärendedetalj?id={{ arende.cr5ee_arendenid }}'">
+                      <span class="issue-id">
+                        {% if arende.cr5ee_arendeid %}{{ arende.cr5ee_arendeid }}{% else %}{{ arende.cr5ee_arendenid | slice: 0, 8 }}{% endif %}
+                      </span>
+                      <span class="issue-title">{{ arende.cr5ee_name | escape | truncate: 50 }}</span>
+                      <div class="issue-meta">
+                        {% if prio_label %}
+                          <span class="priority-badge {{ prio_label | downcase }}">{{ prio_label }}</span>
+                        {% endif %}
+                        {% if status_label2 %}
+                          <span class="status-badge {{ status_label2 | downcase }}">{{ status_label2 }}</span>
+                        {% endif %}
+                      </div>
+                    </li>
+                  {% endfor %}
+                </ul>
+              {% else %}
+                <div class="projekt-empty">
+                  <div class="projekt-empty-icon">📋</div>
+                  <div class="projekt-empty-title">Inga ärenden i detta projekt</div>
+                </div>
+              {% endif %}
+            </div>
+          {% endif %}
+        {% endfor %}
+      {% else %}
+        <div class="projekt-main-header">
+          <h2 class="projekt-main-title">Välj ett projekt</h2>
+        </div>
+        <div class="projekt-empty">
+          <div class="projekt-empty-icon">📁</div>
+          <div class="projekt-empty-title">Inget projekt valt</div>
+          <p>Klicka på ett projekt i listan till vänster</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<script>
+  (function() {
+    // Project click navigation
+    var projektItems = document.querySelectorAll('.projekt-item[data-id]');
+    projektItems.forEach(function(item) {
+      item.addEventListener('click', function() {
+        var projektId = item.getAttribute('data-id');
+        window.location.href = '/Projekt?project=' + projektId;
+      });
+    });
+
+    // New Project button
+    var btnNewProject = document.getElementById('btnNewProject');
+    var btnCancelProject = document.getElementById('btnCancelProject');
+    var createForm = document.getElementById('createProjectForm');
+
+    if (btnNewProject && createForm) {
+      btnNewProject.addEventListener('click', function() {
+        createForm.classList.toggle('show');
+      });
+    }
+
+    if (btnCancelProject && createForm) {
+      btnCancelProject.addEventListener('click', function() {
+        createForm.classList.remove('show');
+      });
+    }
+
+    // Form submission
+    var projectForm = document.getElementById('projectForm');
+    if (projectForm) {
+      projectForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        var name = document.getElementById('projectName').value;
+        var desc = document.getElementById('projectDesc').value;
+
+        createProject(name, desc);
+      });
+    }
+
+    function createProject(name, desc) {
+      var apiUrl = '/_api/cr5ee_projekts';
+      
+      var data = {
+        'cr5ee_namn': name,
+        'cr5ee_beskrivning': desc,
+        'cr5ee_status': 1 // Aktiv
+      };
+
+      fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(data)
+      })
+      .then(function(response) {
+        if (response.ok) {
+          alert('Projekt skapat!');
+          window.location.reload();
+        } else {
+          alert('Kunde inte skapa projekt');
+        }
+      })
+      .catch(function(error) {
+        console.error('Error:', error);
+        alert('Fel vid skapande av projekt');
+      });
+    }
+  })();
+</script>

@@ -1,0 +1,738 @@
+{% comment %}
+Upphandling - Beställningsformulär + lista över egna beställningar med status.
+
+Fält i cr5ee_upphandling (se metadata från EntityDefinitions/Attributes):
+- cr5ee_upphandlingid (GUID)     - Primärnyckel
+- cr5ee_name (String)            - "Upphandling av" (titel/primärfält)
+- cr5ee_beskrivning (String)     - Beskrivning
+- cr5ee_totalvarde (Money)       - Totalvärde
+- cr5ee_verksamhetsomrade (Val)  - Verksamhetsområde
+- cr5ee_upphandlingsstart (Datum), cr5ee_kontraktstart (Datum)
+- cr5ee_miljo (Ja/Nej) + cr5ee_miljokommentar (String)
+- cr5ee_personuppgifter (Ja/Nej)
+- cr5ee_kontaktperson / cr5ee_avtalsagare / cr5ee_avtalsansvarig / cr5ee_chef (Lookup)
+- cr5ee_epost / cr5ee_telefon / cr5ee_referensgrupp (String)
+- Bilagor lagras som annotation (Note) på posten, inte i fil-kolumnen cr5ee_bilagor.
+  Filen väljs i formuläret, mellanlagras i webbläsaren och laddas upp av sidans JS när
+  entityformens postback landat tillbaka här - samma lösning som Ärende-sidan.
+- cr5ee_status (Val/Picklist, bekräftat i EntityDefinitions 2026-09-15) - status.
+  Ett Val kommer INTE tillbaka som text eller FormattedValue ur fetchxml: båda är tomma,
+  och etiketten ligger i item.cr5ee_status.Label - samma läsning som Verksamhetsområde
+  nedan och som Ärende-sidan använder. Den tidigare varningen mot .Label gällde när
+  kolumnen var ett Heltal; "Invalid cast from System.Int32 to EntitySetDrop" kastas bara
+  på heltalskolumner. Sifferbaserad reserv: Ny=1, Under handläggning=2, Godkänd=3,
+  Avslag=4, Genomförd=5. Tom status visas som Ny.
+
+Beställaren identifieras via cr5ee_kontaktperson, som formuläret "Beställning" sätter
+till den inloggade användarens kontakt-id (user.id).
+
+OBS - antagande om öppna/avslutade-gruppering (justera is_done-blocket nedan om fel):
+  Öppna:      Ny, Under handläggning, Godkänd
+  Avslutade:  Avslag, Genomförd
+
+Formuläret som används för att skapa en ny post heter (schemanamn) 'Form'
+(visningsnamn "Beställning" i Power Pages-admin).
+{% endcomment %}
+
+{%- assign qName       = request.params.qName       | default: '' | strip -%}
+{%- assign sortBy      = request.params.sortBy      | default: 'createdon' | strip -%}
+{%- assign sortDir     = request.params.sortDir     | default: 'desc' | downcase | strip -%}
+{%- assign statusView  = request.params.status      | default: 'open' | strip -%}
+{%- assign showSuccess = request.params.success     | default: '' | strip -%}
+{%- assign debugView   = request.params.debug       | default: '' | strip -%}
+
+{%- comment -%}
+Bilagor: entityformen är ett klassiskt WebForms-formulär med helsidespostback, så filen kan inte
+skickas med i samma anrop. Den mellanlagras i webbläsaren när den väljs (IndexedDB, se sidans JS) och
+laddas upp som annotation (Note) så fort vi landar tillbaka med ?success=1. Samma mönster som Ärende.
+Här slås beställningen som just skapades upp, alltså kontaktens senaste post.
+{%- endcomment -%}
+{%- assign justCreatedUpphandling = nil -%}
+{%- if showSuccess == '1' and user.id -%}
+  {% fetchxml justCreatedSet %}
+  <fetch version="1.0" mapping="logical" distinct="false" top="1">
+    <entity name="cr5ee_upphandling">
+      <attribute name="cr5ee_upphandlingid" />
+      <order attribute="createdon" descending="true" />
+      <filter type="and">
+        <condition attribute="cr5ee_kontaktperson" operator="eq" value="{{ user.id }}" />
+      </filter>
+    </entity>
+  </fetch>
+  {% endfetchxml %}
+  {%- assign justCreatedItems = justCreatedSet.results.entities -%}
+  {%- if justCreatedItems and justCreatedItems.size > 0 -%}
+    {%- assign justCreatedUpphandling = justCreatedItems.first -%}
+  {%- endif -%}
+{%- endif -%}
+
+{%- assign toolbar_title = 'Öppna beställningar' -%}
+{%- if statusView == 'closed' -%}
+  {%- assign toolbar_title = 'Avslutade beställningar' -%}
+{%- elsif statusView == 'all' -%}
+  {%- assign toolbar_title = 'Alla beställningar' -%}
+{%- endif -%}
+
+{%- comment -%} Tillåtna sorteringsfält {%- endcomment -%}
+{%- assign order_attr = 'createdon' -%}
+{%- if sortBy == 'cr5ee_name' or sortBy == 'createdon' or sortBy == 'cr5ee_totalvarde' or sortBy == 'cr5ee_status' or sortBy == 'cr5ee_upphandlingsstart' -%}
+  {%- assign order_attr = sortBy -%}
+{%- endif -%}
+
+{%- assign order_desc = 'true' -%}
+{%- if sortDir == 'asc' -%}
+  {%- assign order_desc = 'false' -%}
+{%- endif -%}
+
+{% comment %} FetchXML - endast inloggad kontakts egna beställningar {% endcomment %}
+{% fetchxml upphandlingSet %}
+<fetch version="1.0" mapping="logical" distinct="false">
+  <entity name="cr5ee_upphandling">
+
+    <attribute name="cr5ee_upphandlingid" />
+    <attribute name="cr5ee_name" />
+    <attribute name="createdon" />
+    <attribute name="cr5ee_beskrivning" />
+    <attribute name="cr5ee_totalvarde" />
+    <attribute name="cr5ee_verksamhetsomrade" />
+    <attribute name="cr5ee_upphandlingsstart" />
+    <attribute name="cr5ee_kontraktstart" />
+    <attribute name="cr5ee_miljo" />
+    <attribute name="cr5ee_miljokommentar" />
+    <attribute name="cr5ee_personuppgifter" />
+    <attribute name="cr5ee_kontaktperson" />
+    <attribute name="cr5ee_avtalsagare" />
+    <attribute name="cr5ee_avtalsansvarig" />
+    <attribute name="cr5ee_chef" />
+    <attribute name="cr5ee_epost" />
+    <attribute name="cr5ee_telefon" />
+    <attribute name="cr5ee_referensgrupp" />
+    <attribute name="cr5ee_status" />
+    <!-- Alltid giltiga standardkolumner, med i diagnostiken för att hitta var statusen ligger -->
+    <attribute name="statuscode" />
+    <attribute name="statecode" />
+
+    <!-- SORTERING -->
+    <order attribute="{{ order_attr }}" descending="{{ order_desc }}" />
+
+    <!-- ENDAST EGNA BESTÄLLNINGAR -->
+    <filter type="and">
+      <condition attribute="cr5ee_kontaktperson" operator="eq" value="{{ user.id }}" />
+      {% if qName != '' %}
+      <condition attribute="cr5ee_name" operator="like" value="%{{ qName | escape }}%" />
+      {% endif %}
+    </filter>
+
+  </entity>
+</fetch>
+{% endfetchxml %}
+
+{% assign entities = upphandlingSet.results.entities %}
+
+{%- comment -%}
+Räknar rader per vy och statusens text läses en gång här.
+
+Statusen läses i tre steg: FormattedValue, sedan .Label (det är den som ger etiketten för ett Val),
+och sist texten, som mappas från siffra till etikett. Okända värden visas som de är, så att ett
+oväntat valvärde syns i listan i stället för att försvinna.
+{%- endcomment -%}
+{% assign visible_count = 0 %}
+{% assign open_count = 0 %}
+{% assign closed_count = 0 %}
+{% for item in entities %}
+  {% capture status_raw %}{{ item.cr5ee_status }}{% endcapture %}
+  {% assign status_raw = status_raw | strip %}
+  {% assign status_label = item['cr5ee_status@OData.Community.Display.V1.FormattedValue'] %}
+  {%- comment -%} Ett Val läses ur .Label, se kommentaren överst {%- endcomment -%}
+  {% if status_label == nil or status_label == '' %}
+    {% if item.cr5ee_status and item.cr5ee_status.Label %}
+      {% assign status_label = item.cr5ee_status.Label %}
+    {% endif %}
+  {% endif %}
+  {% if status_label == nil or status_label == '' %}
+    {% case status_raw %}
+      {% when '1' %}{% assign status_label = 'Ny' %}
+      {% when '2' %}{% assign status_label = 'Under handläggning' %}
+      {% when '3' %}{% assign status_label = 'Godkänd' %}
+      {% when '4' %}{% assign status_label = 'Avslag' %}
+      {% when '5' %}{% assign status_label = 'Genomförd' %}
+      {% else %}{% assign status_label = status_raw %}
+    {% endcase %}
+  {% endif %}
+  {%- comment -%}
+  Tom status betyder att kolumnen aldrig sätts när beställningen skapas. En beställning som
+  just kommit in är ny, så den visas som Ny. Sätt gärna Ny som standardvärde på kolumnen
+  cr5ee_status i Dataverse, så blir det ett riktigt värde i posten och inte bara i vyn.
+  {%- endcomment -%}
+  {% if status_label == nil or status_label == '' %}
+    {% assign status_label = 'Ny' %}
+  {% endif %}
+  {% assign is_done = false %}
+  {% if status_label == 'Avslag' or status_label == 'Genomförd' %}
+    {% assign is_done = true %}
+  {% endif %}
+  {% if is_done %}
+    {% assign closed_count = closed_count | plus: 1 %}
+  {% else %}
+    {% assign open_count = open_count | plus: 1 %}
+  {% endif %}
+  {% if statusView == 'open' and is_done %}
+    {% continue %}
+  {% endif %}
+  {% if statusView == 'closed' and is_done == false %}
+    {% continue %}
+  {% endif %}
+  {% assign visible_count = visible_count | plus: 1 %}
+{% endfor %}
+{% assign all_count = open_count | plus: closed_count %}
+
+{%- assign pageSize = 10 -%}
+
+<div class="row sectionBlockLayout upphandling-page" style="display: flex; flex-wrap: wrap; min-height: auto;">
+  <div class="container" style="display: flex; flex-wrap: wrap; width: 100%; max-width: 100%; margin: 0; padding: 0 20px;">
+
+    <div class="upphandling-main-layout">
+
+      <!-- Left Sidebar -->
+      <div class="upphandling-sidebar">
+
+        <button type="button" class="form-popup-trigger" id="openFormModalBtn">
+          <svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 0.5v13" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M0.5 6.95996h13" stroke-width="1"></path></g></svg>
+          Ny beställning
+        </button>
+
+        <div class="upphandling-card upphandling-create-card" id="createFormCard" style="display: none;">
+          <div class="upphandling-card-header">
+            <h2>Beställ upphandling</h2>
+          </div>
+          <div class="form-container-wrapper">
+
+            {%- comment -%}
+            Bekräftelsen låg tidigare här inne. Kortet har display:none tills man klickar
+            "Ny beställning", så den kunde aldrig synas efter inskickningen. Den ligger nu
+            överst i listan i stället, se .upphandling-flash längre ned.
+            {%- endcomment -%}
+
+            <div class="entityform-container" id="active-form-container">
+              {% entityform name:'Beställning' %}
+
+              {%- comment -%}
+              Bilagor: filen väljs här och mellanlagras i webbläsaren (IndexedDB). Entityformen gör en
+              helsidespostback som filen inte kan följa med i, så sidans JS laddar upp den som
+              annotation när vi landar tillbaka med ?success=1. Filväljaren ligger inuti
+              #active-form-container, eftersom JS flyttar hela containern in i popupen.
+              Statusraden har klass, inte id, för att matcha samma JS som Ärende använder.
+              {%- endcomment -%}
+              <div class="create-attach" id="upphandlingAttach">
+                <label class="create-attach-label" for="upphandlingFileInput">Bifoga filer (valfritt)</label>
+                <input type="file" id="upphandlingFileInput" multiple />
+                <div class="create-attach-hint" id="upphandlingAttachHint"></div>
+                <div class="create-attach-status"></div>
+              </div>
+            </div>
+
+            {% if justCreatedUpphandling %}
+            <div id="justCreatedUpphandlingMarker" data-upphandlingid="{{ justCreatedUpphandling.cr5ee_upphandlingid | escape }}" style="display:none;"></div>
+            {% endif %}
+
+          </div>
+        </div>
+
+        <!-- Quick Filters -->
+        <div class="upphandling-card upphandling-filters-card">
+          <div class="upphandling-card-header">
+            <h2><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M13.5 0.5H0.5l5 7v6l3 -2v-4l5 -7Z" stroke-width="1"></path></g></svg> Snabbfilter</h2>
+          </div>
+          <div class="filters-card-body">
+            <a href="?status=open" class="quick-filter-link {% if statusView == 'open' %}active{% endif %}">
+              <span>Öppna beställningar</span>
+              <span class="quick-filter-count">{{ open_count }}</span>
+            </a>
+            <a href="?status=closed" class="quick-filter-link {% if statusView == 'closed' %}active{% endif %}">
+              <span>Avslutade beställningar</span>
+              <span class="quick-filter-count">{{ closed_count }}</span>
+            </a>
+            <a href="?status=all" class="quick-filter-link {% if statusView == 'all' %}active{% endif %}">
+              <span>Alla beställningar</span>
+              <span class="quick-filter-count">{{ all_count }}</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Content -->
+      <div class="upphandling-content">
+
+        {%- comment -%}
+        Bekräftelse och status för bilagor ligger här, i den kolumn som alltid syns. Statusraden
+        har klass och inte id, eftersom sidans JS skriver till alla förekomster: en finns också i
+        formuläret, som är dolt tills man öppnar det.
+        {%- endcomment -%}
+        <div class="upphandling-flash-area">
+          {% if showSuccess == '1' %}
+          <div class="upphandling-flash" id="successMessage" role="status">
+            <span class="upphandling-flash-icon" aria-hidden="true"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M0.5 8.55005 3.23 12.06c0.09212 0.1197 0.21016 0.217 0.34525 0.2846 0.13509 0.0675 0.28373 0.1036 0.43475 0.1054 0.14859 0.0018 0.2957 -0.0297 0.43063 -0.0919 0.13492 -0.0623 0.25427 -0.1539 0.34937 -0.2681L13.5 1.55005" stroke-width="1"></path></g></svg></span>
+            <div class="upphandling-flash-text">
+              <strong>Tack! Din beställning är inskickad.</strong>
+              <span>Den ligger nu överst i listan med status Ny och behandlas inom kort.</span>
+            </div>
+            <button type="button" class="upphandling-flash-close" aria-label="Stäng" onclick="dismissSuccessMessage()"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m13.5 0.5 -13 13" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m0.5 0.5 13 13" stroke-width="1"></path></g></svg></button>
+          </div>
+          {% endif %}
+          <div class="create-attach-status"></div>
+        </div>
+
+        <div class="upphandling-toolbar">
+          <div class="jira-toolbar-top">
+            <div class="toolbar-left">
+              <h2>{{ toolbar_title }}</h2>
+              <span class="record-count">{{ visible_count }} poster</span>
+              {%- comment -%} Summan räknas ihop av sidans JS utifrån radernas data-value {%- endcomment -%}
+              <span class="upphandling-summary">
+                <span class="upphandling-summary-label">Totalvärde</span>
+                <span class="upphandling-summary-value" id="upphandlingTotalSum">-</span>
+              </span>
+            </div>
+          </div>
+
+          <div class="search-sort-bar" role="search" aria-label="Sök och sortera beställningar">
+            <div class="search-sort-row">
+              <div class="search-fields">
+                <div class="search-input-group">
+                  <label for="qName" class="sr-only">Sök</label>
+                  <span class="search-icon" aria-hidden="true"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M6 11.5c3.03757 0 5.5 -2.46243 5.5 -5.5S9.03757 0.5 6 0.5 0.5 2.96243 0.5 6s2.46243 5.5 5.5 5.5Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M13.5 13.5 10 10" stroke-width="1"></path></g></svg></span>
+                  <input type="text" id="qName" value="{{ qName | escape }}" class="form-control search-input" placeholder="Sök på 'Upphandling av'..." />
+                </div>
+              </div>
+
+              <div class="sort-controls">
+                <div class="sort-select-wrapper">
+                  <label for="sortBySelect" class="sr-only">Sortera efter</label>
+                  <select id="sortBySelect" class="form-control sort-select" aria-label="Sortera efter">
+                    <option value="createdon" {% if order_attr == 'createdon' %}selected{% endif %}>Skapad</option>
+                    <option value="cr5ee_name" {% if order_attr == 'cr5ee_name' %}selected{% endif %}>Upphandling av</option>
+                    <option value="cr5ee_totalvarde" {% if order_attr == 'cr5ee_totalvarde' %}selected{% endif %}>Totalvärde</option>
+                    <option value="cr5ee_upphandlingsstart" {% if order_attr == 'cr5ee_upphandlingsstart' %}selected{% endif %}>Upphandlingsstart</option>
+                    <option value="cr5ee_status" {% if order_attr == 'cr5ee_status' %}selected{% endif %}>Status</option>
+                  </select>
+                </div>
+
+                <div class="sort-direction" role="group" aria-label="Sorteringsriktning">
+                  <button type="button" class="dir-btn {% if order_desc == 'false' %}active{% endif %}" data-dir="asc" aria-label="Stigande" title="Stigande">
+                    <span style="display:inline-block;transform:rotate(180deg)"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m4 6.5 3 3 3 -3" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 0.5v9" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M3.5 13.5h7" stroke-width="1"></path></g></svg></span>
+                  </button>
+                  <button type="button" class="dir-btn {% if order_desc == 'true' %}active{% endif %}" data-dir="desc" aria-label="Fallande" title="Fallande">
+                    <svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m4 6.5 3 3 3 -3" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 0.5v9" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M3.5 13.5h7" stroke-width="1"></path></g></svg>
+                  </button>
+                </div>
+              </div>
+
+              <div class="search-actions">
+                <button type="button" class="btn btn-primary btn-search" id="btnSearch">
+                  <span class="btn-text">Sök</span>
+                </button>
+                <a href="/Inköp/Beställning-av-upphandling/" class="btn btn-clear" title="Rensa"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m13.5 0.5 -13 13" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m0.5 0.5 13 13" stroke-width="1"></path></g></svg></a>
+              </div>
+            </div>
+
+            <!-- Hidden fields for JS -->
+            <select id="sortBy" class="form-control" style="display:none;">
+              <option value="createdon" {% if order_attr == 'createdon' %}selected{% endif %}>Skapad</option>
+              <option value="cr5ee_name" {% if order_attr == 'cr5ee_name' %}selected{% endif %}>Upphandling av</option>
+              <option value="cr5ee_totalvarde" {% if order_attr == 'cr5ee_totalvarde' %}selected{% endif %}>Totalvärde</option>
+              <option value="cr5ee_upphandlingsstart" {% if order_attr == 'cr5ee_upphandlingsstart' %}selected{% endif %}>Upphandlingsstart</option>
+              <option value="cr5ee_status" {% if order_attr == 'cr5ee_status' %}selected{% endif %}>Status</option>
+            </select>
+            <select id="sortDir" class="form-control" style="display:none;">
+              <option value="asc" {% if order_desc == 'false' %}selected{% endif %}>Asc</option>
+              <option value="desc" {% if order_desc == 'true' %}selected{% endif %}>Desc</option>
+            </select>
+          </div>
+        </div>
+
+        {% if debugView == '1' %}
+        {%- comment -%}
+        Diagnostik: visar hur Dataverse faktiskt svarar för de fem första posterna, så att tomt
+        totalvärde eller tom status kan skiljas från ett värde som inte går att skriva ut.
+        Syns bara med ?debug=1 i adressen. Egenskapsåtkomst (.Value/.Label) undviks här med
+        flit - den kraschar sidan när kolumnen är ett heltal.
+        {%- endcomment -%}
+        <div class="upphandling-debug">
+          <h3>Diagnostik (?debug=1)</h3>
+          <div>Poster från Dataverse: {{ entities.size }} &middot; inloggad kontakt: {{ user.id }}</div>
+          <table>
+            <tr>
+              <th>Upphandling av</th>
+              <th>status (text)</th>
+              <th>status (FormattedValue)</th>
+              <th>status (.Label)</th>
+              <th>statuscode (text)</th>
+              <th>statuscode (FormattedValue)</th>
+              <th>statecode (FormattedValue)</th>
+              <th>totalvärde (text)</th>
+              <th>totalvärde (FormattedValue)</th>
+            </tr>
+            {% for item in entities limit: 5 %}
+            <tr>
+              <td>{{ item.cr5ee_name | escape }}</td>
+              <td>[{{ item.cr5ee_status }}]</td>
+              <td>[{{ item['cr5ee_status@OData.Community.Display.V1.FormattedValue'] }}]</td>
+              <td>[{{ item.cr5ee_status.Label }}]</td>
+              <td>[{{ item.statuscode }}]</td>
+              <td>[{{ item['statuscode@OData.Community.Display.V1.FormattedValue'] }}]</td>
+              <td>[{{ item['statecode@OData.Community.Display.V1.FormattedValue'] }}]</td>
+              <td>[{{ item.cr5ee_totalvarde }}]</td>
+              <td>[{{ item['cr5ee_totalvarde@OData.Community.Display.V1.FormattedValue'] }}]</td>
+            </tr>
+            {% endfor %}
+          </table>
+        </div>
+        {% endif %}
+
+        <!-- Lista -->
+        <div class="upphandling-table-wrapper">
+          <table class="upphandling-table">
+            <thead>
+              <tr>
+                {%- comment -%}
+                Rubriker med data-sort-field går att klicka på för att sortera, se sidans JS.
+                Verksamhetsområde saknar attribut eftersom fetchxml bara sorterar på de fält
+                som är tillåtna i order_attr ovan.
+                {%- endcomment -%}
+                <th scope="col" data-sort-field="cr5ee_name">Upphandling av</th>
+                <th scope="col" data-sort-field="createdon">Skapad</th>
+                <th scope="col">Verksamhetsområde</th>
+                <th scope="col" class="col-money" data-sort-field="cr5ee_totalvarde">Totalvärde</th>
+                <th scope="col" data-sort-field="cr5ee_upphandlingsstart">Upphandlingsstart</th>
+                <th scope="col" data-sort-field="cr5ee_status">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+{% if entities and entities.size > 0 %}
+  {% for item in entities %}
+
+    {%- comment -%} Samma läsning som i räkneslingan ovan: statusen läses som text, aldrig som egenskap {%- endcomment -%}
+    {%- capture status_raw -%}{{ item.cr5ee_status }}{%- endcapture -%}
+    {%- assign status_raw = status_raw | strip -%}
+    {%- assign status_label = item['cr5ee_status@OData.Community.Display.V1.FormattedValue'] -%}
+    {%- if status_label == nil or status_label == '' -%}
+      {%- if item.cr5ee_status and item.cr5ee_status.Label -%}
+        {%- assign status_label = item.cr5ee_status.Label -%}
+      {%- endif -%}
+    {%- endif -%}
+    {%- if status_label == nil or status_label == '' -%}
+      {%- case status_raw -%}
+        {%- when '1' -%}{%- assign status_label = 'Ny' -%}
+        {%- when '2' -%}{%- assign status_label = 'Under handläggning' -%}
+        {%- when '3' -%}{%- assign status_label = 'Godkänd' -%}
+        {%- when '4' -%}{%- assign status_label = 'Avslag' -%}
+        {%- when '5' -%}{%- assign status_label = 'Genomförd' -%}
+        {%- else -%}{%- assign status_label = status_raw -%}
+      {%- endcase -%}
+    {%- endif -%}
+    {%- comment -%} Tom status visas som Ny, se räkneslingan ovan {%- endcomment -%}
+    {%- if status_label == nil or status_label == '' -%}
+      {%- assign status_label = 'Ny' -%}
+    {%- endif -%}
+
+    {%- assign is_done = false -%}
+    {%- if status_label == 'Avslag' or status_label == 'Genomförd' -%}
+      {%- assign is_done = true -%}
+    {%- endif -%}
+    {%- if statusView == 'open' and is_done -%}
+      {%- continue -%}
+    {%- endif -%}
+    {%- if statusView == 'closed' and is_done == false -%}
+      {%- continue -%}
+    {%- endif -%}
+
+    {%- assign status_badge_class = 'default' -%}
+    {%- case status_label -%}
+      {%- when 'Ny'                  -%}{%- assign status_badge_class = 'default' -%}
+      {%- when 'Under handläggning'  -%}{%- assign status_badge_class = 'high' -%}
+      {%- when 'Godkänd'             -%}{%- assign status_badge_class = 'approved' -%}
+      {%- when 'Avslag'              -%}{%- assign status_badge_class = 'critical' -%}
+      {%- when 'Genomförd'           -%}{%- assign status_badge_class = 'low' -%}
+    {%- endcase -%}
+
+    {%- assign verksamhet_label = item['cr5ee_verksamhetsomrade@OData.Community.Display.V1.FormattedValue'] -%}
+    {%- if (verksamhet_label == nil or verksamhet_label == '') and item.cr5ee_verksamhetsomrade and item.cr5ee_verksamhetsomrade.Label -%}
+      {%- assign verksamhet_label = item.cr5ee_verksamhetsomrade.Label -%}
+    {%- endif -%}
+
+    {%- comment -%}
+    Totalvärdet är en Money-kolumn. FetchXML-resultat saknar ofta FormattedValue-nyckeln, så beloppet
+    läses också som text ("150000.0000"). Det råa värdet följer med i data-value och formateras av
+    sidans JS (1 500 000 kr), som också summerar kolumnen.
+    {%- endcomment -%}
+    {%- capture totalvarde_raw -%}{{ item.cr5ee_totalvarde }}{%- endcapture -%}
+    {%- assign totalvarde_raw = totalvarde_raw | strip -%}
+    {%- assign totalvarde_label = item['cr5ee_totalvarde@OData.Community.Display.V1.FormattedValue'] -%}
+    {%- if totalvarde_label == nil or totalvarde_label == '' -%}
+      {%- assign totalvarde_label = totalvarde_raw -%}
+    {%- endif -%}
+
+    {%- assign kontaktperson_label = item['cr5ee_kontaktperson@OData.Community.Display.V1.FormattedValue'] -%}
+    {%- if (kontaktperson_label == nil or kontaktperson_label == '') and item.cr5ee_kontaktperson and item.cr5ee_kontaktperson.Name -%}
+      {%- assign kontaktperson_label = item.cr5ee_kontaktperson.Name -%}
+    {%- endif -%}
+
+    {%- assign avtalsagare_label = item['cr5ee_avtalsagare@OData.Community.Display.V1.FormattedValue'] -%}
+    {%- if (avtalsagare_label == nil or avtalsagare_label == '') and item.cr5ee_avtalsagare and item.cr5ee_avtalsagare.Name -%}
+      {%- assign avtalsagare_label = item.cr5ee_avtalsagare.Name -%}
+    {%- endif -%}
+
+    {%- assign avtalsansvarig_label = item['cr5ee_avtalsansvarig@OData.Community.Display.V1.FormattedValue'] -%}
+    {%- if (avtalsansvarig_label == nil or avtalsansvarig_label == '') and item.cr5ee_avtalsansvarig and item.cr5ee_avtalsansvarig.Name -%}
+      {%- assign avtalsansvarig_label = item.cr5ee_avtalsansvarig.Name -%}
+    {%- endif -%}
+
+    {%- assign chef_label = item['cr5ee_chef@OData.Community.Display.V1.FormattedValue'] -%}
+    {%- if (chef_label == nil or chef_label == '') and item.cr5ee_chef and item.cr5ee_chef.Name -%}
+      {%- assign chef_label = item.cr5ee_chef.Name -%}
+    {%- endif -%}
+
+    {%- assign miljo_label = item['cr5ee_miljo@OData.Community.Display.V1.FormattedValue'] -%}
+    {%- assign personuppgifter_label = item['cr5ee_personuppgifter@OData.Community.Display.V1.FormattedValue'] -%}
+
+    {%- comment -%}
+    Bilagor till beställningen: lagras som annotation (Note) på posten, precis som på Ärende.
+    De renderas i en <template> bredvid raden och kopieras in i popupen när den öppnas.
+    {%- endcomment -%}
+    {% fetchxml rowAttachmentSet %}
+    <fetch version="1.0" mapping="logical" distinct="false">
+      <entity name="annotation">
+        <attribute name="filename" />
+        <attribute name="mimetype" />
+        <attribute name="documentbody" />
+        <order attribute="createdon" descending="false" />
+        <filter type="and">
+          <condition attribute="objectid" operator="eq" value="{{ item.cr5ee_upphandlingid }}" />
+          <condition attribute="filename" operator="not-null" />
+        </filter>
+      </entity>
+    </fetch>
+    {% endfetchxml %}
+    {% assign rowAttachments = rowAttachmentSet.results.entities %}
+
+    <tr data-id="{{ item.cr5ee_upphandlingid | escape }}">
+      <td>
+        <button type="button" class="upphandling-popup-trigger"
+                data-id="{{ item.cr5ee_upphandlingid | escape }}"
+                data-name="{{ item.cr5ee_name | escape }}"
+                data-created="{{ item.createdon | date: 'yyyy-MM-dd' | escape }}"
+                data-beskrivning="{{ item.cr5ee_beskrivning | escape }}"
+                data-status="{{ status_label | escape }}"
+                data-statusclass="{{ status_badge_class }}"
+                data-verksamhet="{{ verksamhet_label | escape }}"
+                data-totalvarde="{{ totalvarde_label | escape }}"
+                data-upphandlingsstart="{{ item.cr5ee_upphandlingsstart | date: 'yyyy-MM-dd' | escape }}"
+                data-kontraktstart="{{ item.cr5ee_kontraktstart | date: 'yyyy-MM-dd' | escape }}"
+                data-miljo="{{ miljo_label | escape }}"
+                data-miljokommentar="{{ item.cr5ee_miljokommentar | escape }}"
+                data-personuppgifter="{{ personuppgifter_label | escape }}"
+                data-referensgrupp="{{ item.cr5ee_referensgrupp | escape }}"
+                data-kontaktperson="{{ kontaktperson_label | escape }}"
+                data-avtalsagare="{{ avtalsagare_label | escape }}"
+                data-avtalsansvarig="{{ avtalsansvarig_label | escape }}"
+                data-chef="{{ chef_label | escape }}"
+                data-epost="{{ item.cr5ee_epost | escape }}"
+                data-telefon="{{ item.cr5ee_telefon | escape }}"
+                data-totalvarde-raw="{{ totalvarde_raw | escape }}">
+          {{ item.cr5ee_name | escape }}
+        </button>
+        {% if rowAttachments and rowAttachments.size > 0 %}
+        <template class="row-attachments-tpl">
+          {% for att in rowAttachments %}
+            {%- assign att_ext = '' -%}
+            {%- if att.filename contains '.' -%}{%- assign att_ext = att.filename | split: '.' | last | upcase -%}{%- endif -%}
+            {% if att.mimetype contains 'image' %}
+            <a class="case-attachment" href="data:{{ att.mimetype }};base64,{{ att.documentbody }}" download="{{ att.filename | escape }}" title="Ladda ner {{ att.filename | escape }}">
+              <img class="case-attachment-thumb" src="data:{{ att.mimetype }};base64,{{ att.documentbody }}" alt="{{ att.filename | escape }}" />
+              <div class="case-attachment-name" title="{{ att.filename | escape }}">{{ att.filename | escape }}</div>
+            </a>
+            {% else %}
+            <a class="case-attachment" href="data:{{ att.mimetype }};base64,{{ att.documentbody }}" download="{{ att.filename | escape }}" title="Ladda ner {{ att.filename | escape }}">
+              <div class="case-attachment-icon"><div class="case-attachment-ext">{{ att_ext | default: 'FIL' }}</div></div>
+              <div class="case-attachment-name" title="{{ att.filename | escape }}">{{ att.filename | escape }}</div>
+            </a>
+            {% endif %}
+          {% endfor %}
+        </template>
+        {% endif %}
+      </td>
+      <td>{% if item.createdon %}{{ item.createdon | date: "yyyy-MM-dd" }}{% else %}-{% endif %}</td>
+      <td>{% if verksamhet_label and verksamhet_label != '' %}{{ verksamhet_label | escape }}{% else %}-{% endif %}</td>
+      <td class="js-money" data-value="{{ totalvarde_raw | escape }}">{% if totalvarde_label and totalvarde_label != '' %}{{ totalvarde_label | escape }}{% else %}-{% endif %}</td>
+      <td>{% if item.cr5ee_upphandlingsstart %}{{ item.cr5ee_upphandlingsstart | date: "yyyy-MM-dd" }}{% else %}-{% endif %}</td>
+      <td>
+        {% if status_label and status_label != '' %}
+          <span class="status-badge {{ status_badge_class }}">{{ status_label | escape }}</span>
+        {% else %}
+          -
+        {% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+{% else %}
+    <tr>
+      <td colspan="6">
+        <div class="empty-state">
+          <div class="empty-state-title">Inga beställningar hittades</div>
+          <div class="empty-state-text">
+            {% if qName != '' %}
+              Prova att ändra din sökning eller <a href="/Inköp/Beställning-av-upphandling/">rensa sökningen</a>
+            {% else %}
+              Du har inte gjort några beställningar än
+            {% endif %}
+          </div>
+        </div>
+      </td>
+    </tr>
+{% endif %}
+            </tbody>
+          </table>
+        </div>
+
+        {%- if visible_count > pageSize -%}
+        <div class="show-more-container">
+          <button type="button" class="btn btn-show-more" id="btnShowMore">
+            Visa mer ({{ visible_count | minus: pageSize }} till)
+          </button>
+        </div>
+        {%- endif -%}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Detaljpopup -->
+<div class="upphandling-popup-overlay" id="upphandlingPopupOverlay">
+  <div class="upphandling-popup" id="upphandlingPopup">
+    <div class="upphandling-popup-header">
+      <div class="upphandling-popup-header-content">
+        <h2 class="upphandling-popup-title" id="popupTitle">Beställning</h2>
+        <div class="upphandling-popup-subtitle">
+          <span id="popupStatusBadge"></span>
+        </div>
+      </div>
+      <button type="button" class="upphandling-popup-close" id="popupCloseBtn" aria-label="Stäng"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m13.5 0.5 -13 13" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m0.5 0.5 13 13" stroke-width="1"></path></g></svg></button>
+    </div>
+    <div class="upphandling-popup-body">
+
+      <div class="upphandling-popup-section">
+        <div class="upphandling-popup-section-title">Grundinformation</div>
+        <div class="upphandling-popup-grid">
+          <div class="upphandling-popup-field full-width">
+            <div class="upphandling-popup-label">Beskrivning</div>
+            <div class="upphandling-popup-value" id="popupBeskrivning">-</div>
+          </div>
+          <div class="upphandling-popup-field">
+            <div class="upphandling-popup-label">Skapad</div>
+            <div class="upphandling-popup-value" id="popupCreated">-</div>
+          </div>
+          <div class="upphandling-popup-field">
+            <div class="upphandling-popup-label">Verksamhetsområde</div>
+            <div class="upphandling-popup-value" id="popupVerksamhet">-</div>
+          </div>
+          <div class="upphandling-popup-field">
+            <div class="upphandling-popup-label">Totalvärde</div>
+            <div class="upphandling-popup-value" id="popupTotalvarde">-</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="upphandling-popup-section">
+        <div class="upphandling-popup-section-title">Tidplan</div>
+        <div class="upphandling-popup-grid">
+          <div class="upphandling-popup-field">
+            <div class="upphandling-popup-label">Upphandlingsstart</div>
+            <div class="upphandling-popup-value" id="popupUpphandlingsstart">-</div>
+          </div>
+          <div class="upphandling-popup-field">
+            <div class="upphandling-popup-label">Kontraktstart</div>
+            <div class="upphandling-popup-value" id="popupKontraktstart">-</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="upphandling-popup-section">
+        <div class="upphandling-popup-section-title">Kontakt &amp; ansvar</div>
+        <div class="upphandling-popup-grid">
+          <div class="upphandling-popup-field">
+            <div class="upphandling-popup-label">Kontaktperson</div>
+            <div class="upphandling-popup-value" id="popupKontaktperson">-</div>
+          </div>
+          <div class="upphandling-popup-field">
+            <div class="upphandling-popup-label">Avtalsägare</div>
+            <div class="upphandling-popup-value" id="popupAvtalsagare">-</div>
+          </div>
+          <div class="upphandling-popup-field">
+            <div class="upphandling-popup-label">Avtalsansvarig</div>
+            <div class="upphandling-popup-value" id="popupAvtalsansvarig">-</div>
+          </div>
+          <div class="upphandling-popup-field">
+            <div class="upphandling-popup-label">Chef</div>
+            <div class="upphandling-popup-value" id="popupChef">-</div>
+          </div>
+          <div class="upphandling-popup-field">
+            <div class="upphandling-popup-label">Epost</div>
+            <div class="upphandling-popup-value" id="popupEpost">-</div>
+          </div>
+          <div class="upphandling-popup-field">
+            <div class="upphandling-popup-label">Telefon</div>
+            <div class="upphandling-popup-value" id="popupTelefon">-</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="upphandling-popup-section">
+        <div class="upphandling-popup-section-title">Övrigt</div>
+        <div class="upphandling-popup-grid">
+          <div class="upphandling-popup-field">
+            <div class="upphandling-popup-label">Miljö</div>
+            <div class="upphandling-popup-value" id="popupMiljo">-</div>
+          </div>
+          {%- comment -%} Miljökommentaren visas bara när den är ifylld, se sidans JS {%- endcomment -%}
+          <div class="upphandling-popup-field full-width" id="popupMiljokommentarField" style="display:none;">
+            <div class="upphandling-popup-label">Miljökommentar</div>
+            <div class="upphandling-popup-value" id="popupMiljokommentar">-</div>
+          </div>
+          <div class="upphandling-popup-field">
+            <div class="upphandling-popup-label">Personuppgifter</div>
+            <div class="upphandling-popup-value" id="popupPersonuppgifter">-</div>
+          </div>
+          <div class="upphandling-popup-field full-width">
+            <div class="upphandling-popup-label">Referensgrupp</div>
+            <div class="upphandling-popup-value" id="popupReferensgrupp">-</div>
+          </div>
+        </div>
+      </div>
+
+      {%- comment -%} Bilagorna kopieras hit från radens <template> när popupen öppnas {%- endcomment -%}
+      <div class="upphandling-popup-section" id="popupAttachmentsSection" style="display:none;">
+        <div class="upphandling-popup-section-title">Bilagor</div>
+        <div class="case-attachments" id="popupAttachments"></div>
+      </div>
+
+    </div>
+    <div class="upphandling-popup-footer">
+      <button type="button" class="upphandling-popup-btn upphandling-popup-btn-secondary" id="popupCloseFooterBtn">Stäng</button>
+    </div>
+  </div>
+</div>
+
+<!-- Form Popup -->
+<div class="form-popup-overlay" id="formPopupOverlay">
+  <div class="form-popup" id="formPopup">
+    <div class="form-popup-header">
+      <h2 class="form-popup-title">Beställ upphandling</h2>
+      <button type="button" class="form-popup-close" id="formPopupCloseBtn" aria-label="Stäng"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m13.5 0.5 -13 13" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m0.5 0.5 13 13" stroke-width="1"></path></g></svg></button>
+    </div>
+    <div class="form-popup-body" id="formPopupBody">
+      <!-- Fylls med formuläret via JS -->
+    </div>
+  </div>
+</div>
+
+{% include 'Portal Web API Wrapper' %}

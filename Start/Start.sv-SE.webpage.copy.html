@@ -1,0 +1,686 @@
+{% comment %} Start - Startsida för Kfast Internportal En allmän startsida för intranätet: välkomsthälsning, sök i kunskapsbanken, genvägar och en översikt över portalens olika delar. Fokuserar INTE på ärenden. Grafisk profil: Arial, primärfärg #f18e47 med 75/50/25% nyanser. {% endcomment %}
+
+<style>
+  /* Ikoner: era SVG-filer (web-files/Icons) inbäddade i sidan; strecket är currentColor, så färgen följer texten */
+  .ip-icon {
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    vertical-align: -0.125em;
+    flex-shrink: 0;
+  }
+
+  .ip-home {
+    --ip-primary: #f18e47;
+    --ip-primary-75: #f5aa75;
+    --ip-primary-50: #f8c7a3;
+    --ip-primary-25: #fce3d1;
+    --ip-ink: #292520;
+    --ip-muted: #766e63;
+    --ip-card-bg: #ffffff;
+    --ip-border: #ece5da;
+
+    font-family: Arial, Helvetica, sans-serif;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 24px 16px 56px;
+    color: var(--ip-ink);
+  }
+
+  /* === HERO === */
+  .ip-hero {
+    background: linear-gradient(135deg, var(--ip-primary) 0%, var(--ip-primary-75) 100%);
+    border-radius: 16px;
+    padding: 40px 36px;
+    color: white;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 28px;
+    box-shadow: 0 10px 30px rgba(241, 142, 71, 0.28);
+  }
+
+  .ip-hero-text {
+    flex: 1 1 320px;
+  }
+
+  .ip-hero-eyebrow {
+    margin: 0 0 8px;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: capitalize;
+    letter-spacing: 0.3px;
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  .ip-hero-text h1 {
+    margin: 0 0 10px;
+    font-size: 30px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .ip-hero-sub {
+    margin: 0;
+    font-size: 15px;
+    color: rgba(255, 255, 255, 0.95);
+    max-width: 480px;
+  }
+
+  .ip-hero-search {
+    flex: 1 1 320px;
+    max-width: 420px;
+  }
+
+  .ip-search-box {
+    display: flex;
+    align-items: center;
+    background: white;
+    border-radius: 10px;
+    padding: 4px 4px 4px 16px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.14);
+  }
+
+  .ip-search-box svg {
+    width: 18px;
+    height: 18px;
+    color: var(--ip-muted);
+    flex-shrink: 0;
+  }
+
+  .ip-search-box input {
+    flex: 1;
+    border: none;
+    outline: none;
+    padding: 12px 10px;
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--ip-ink);
+    background: transparent;
+  }
+
+  .ip-search-box button {
+    background: var(--ip-primary);
+    color: white;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 7px;
+    font-size: 13px;
+    font-family: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    transition: filter 0.15s ease;
+    white-space: nowrap;
+  }
+
+  .ip-search-box button:hover {
+    filter: brightness(0.92);
+  }
+
+  /* === QUICK LINKS === */
+  .ip-quicklinks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 22px 0 8px;
+  }
+
+  .ip-quicklink {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--ip-card-bg);
+    border: 1px solid var(--ip-border);
+    color: var(--ip-ink);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 9px 16px;
+    border-radius: 999px;
+    transition: all 0.15s ease;
+  }
+
+  .ip-quicklink:hover {
+    border-color: var(--ip-primary);
+    background: var(--ip-primary-25);
+    color: #9a4e0e;
+    text-decoration: none;
+  }
+
+  .ip-quicklink svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  /* === SECTIONS === */
+  .ip-section {
+    margin-top: 40px;
+  }
+
+  .ip-section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  .ip-section-head h2 {
+    margin: 0;
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--ip-ink);
+  }
+
+  .ip-section-head a {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ip-primary);
+    text-decoration: none;
+  }
+
+  .ip-section-head a:hover {
+    text-decoration: underline;
+  }
+
+  /* === EXPLORE CARDS === */
+  .ip-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+  }
+
+  .ip-card {
+    background: var(--ip-card-bg);
+    border: 1px solid var(--ip-border);
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.2s ease;
+  }
+
+  .ip-card:hover {
+    border-color: var(--ip-primary);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.07);
+    text-decoration: none;
+  }
+
+  .ip-card-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: var(--ip-primary-25);
+    color: var(--ip-primary);
+  }
+
+  .ip-card-icon svg {
+    width: 26px;
+    height: 26px;
+  }
+
+  .ip-card-body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .ip-card-body h3 {
+    margin: 0 0 4px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ip-ink);
+  }
+
+  .ip-card-body p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--ip-muted);
+  }
+
+  .ip-card-arrow {
+    font-size: 18px;
+    color: var(--ip-primary-50);
+    transition: all 0.2s ease;
+  }
+
+  .ip-card:hover .ip-card-arrow {
+    color: var(--ip-primary);
+    transform: translateX(3px);
+  }
+
+  /* KB:BEGIN – byggs från kunskapsbank-build/src/start-kb.css, ändra där */
+  /* === KUNSKAPSBANK PÅ STARTSIDAN === */
+  .ip-card-icon {
+    overflow: hidden;
+  }
+
+  .ip-card-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .ip-card-meta {
+    display: block;
+    margin-top: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ip-muted);
+  }
+
+  .ip-card-icon.kb-type-lathund {
+    background: rgba(0, 135, 90, 0.1);
+    color: #00875a;
+  }
+
+  .ip-card-icon.kb-type-video {
+    background: rgba(201, 55, 44, 0.09);
+    color: #c9372c;
+  }
+
+  .ip-card-icon.kb-type-instruktion {
+    background: #ebebeb;
+    color: #2b2b2b;
+  }
+
+  .ip-card-icon.kb-type-artikel {
+    background: #f4f4f4;
+    color: #5c5c5c;
+  }
+
+  .ip-kb-empty {
+    margin: 0;
+    font-size: 14px;
+    color: var(--ip-muted);
+  }
+  /* KB:END */
+
+  /* === RESPONSIVE === */
+  @media (max-width: 640px) {
+    .ip-hero {
+      padding: 28px 20px;
+    }
+
+    .ip-hero-text h1 {
+      font-size: 24px;
+    }
+
+    .ip-search-box {
+      flex-wrap: wrap;
+      padding: 10px;
+    }
+
+    .ip-search-box input {
+      width: 100%;
+      padding: 8px 4px;
+    }
+
+    .ip-search-box button {
+      width: 100%;
+      margin-top: 6px;
+    }
+  }
+</style>
+
+<!-- SVG Icons -->
+<svg style="display:none;">
+  <symbol id="ip-icon-search" viewBox="0 0 14 14" fill="none">
+    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M6 11.5c3.03757 0 5.5 -2.46243 5.5 -5.5S9.03757 0.5 6 0.5 0.5 2.96243 0.5 6s2.46243 5.5 5.5 5.5Z" stroke-width="1"></path>
+    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M13.5 13.5 10 10" stroke-width="1"></path>
+  </symbol>
+  <symbol id="ip-icon-book" viewBox="0 0 14 14" fill="none">
+    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7.00002 13.4999c-1.46476 -1.6127 -3.45121 -2.6572 -5.61 -2.95 -0.24572 -0.0272 -0.472659 -0.1445 -0.637017 -0.3291 -0.164358 -0.1847 -0.254484 -0.42371 -0.252985 -0.67092v-8.05c-0.000009 -0.14444 0.031272 -0.28717 0.091692 -0.41837C0.652129 0.950317 0.740253 0.833766 0.850018 0.739879 0.95785 0.6477 1.08406 0.579519 1.22027 0.539864c0.1362 -0.039655 0.27929 -0.049876 0.41975 -0.029985 2.06429 0.342607 3.95272 1.371381 5.36 2.920001V13.4999Z" stroke-width="1"></path>
+    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 13.4999c1.46476 -1.6127 3.4512 -2.6572 5.61 -2.95 0.2457 -0.0272 0.4727 -0.1445 0.637 -0.3291 0.1644 -0.1847 0.2545 -0.42371 0.253 -0.67092v-8.05c0 -0.14444 -0.0313 -0.28717 -0.0917 -0.41837 -0.0604 -0.131193 -0.1485 -0.247744 -0.2583 -0.341631 -0.1078 -0.092179 -0.234 -0.16036 -0.3702 -0.200015 -0.1363 -0.039655 -0.2793 -0.049876 -0.4198 -0.029985C10.2957 0.852486 8.40728 1.88126 7 3.42988V13.4999Z" stroke-width="1"></path>
+  </symbol>
+  <symbol id="ip-icon-doc" viewBox="0 0 14 14" fill="none">
+    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M9 2.5H3c-0.55228 0 -1 0.44772 -1 1v9c0 0.5523 0.44772 1 1 1h6c0.55228 0 1 -0.4477 1 -1v-9c0 -0.55228 -0.44772 -1 -1 -1Z" stroke-width="1"></path>
+    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M4 5h4" stroke-width="1"></path>
+    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M4 7.5h4" stroke-width="1"></path>
+    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M4 10h2" stroke-width="1"></path>
+    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M4.5 0.5H11c0.2652 0 0.5196 0.105357 0.7071 0.292893C11.8946 0.98043 12 1.23478 12 1.5V11" stroke-width="1"></path>
+  </symbol>
+  <symbol id="ip-icon-users" viewBox="0 0 14 14" fill="none">
+    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M5 6.5c1.38071 0 2.5 -1.11929 2.5 -2.5S6.38071 1.5 5 1.5 2.5 2.61929 2.5 4 3.61929 6.5 5 6.5Z" stroke-width="1"></path>
+    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M0.5 13.5h9v-0.5421c-0.00796 -0.7622 -0.20898 -1.51 -0.58427 -2.1734 -0.3753 -0.6635 -0.91263 -1.221 -1.5618 -1.62049 -0.64918 -0.3995 -1.38902 -0.62793 -2.15041 -0.66398C5.13564 8.49682 5.06778 8.49514 5 8.495c-0.06778 0.00014 -0.13564 0.00182 -0.20352 0.00503 -0.76139 0.03605 -1.50123 0.26448 -2.15041 0.66398 -0.64917 0.39949 -1.1865 0.95699 -1.5618 1.62049C0.708977 11.4479 0.507961 12.1957 0.5 12.9579V13.5Z" stroke-width="1"></path>
+    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M9 6.5c1.3807 0 2.5 -1.11929 2.5 -2.5S10.3807 1.5 9 1.5" stroke-width="1"></path>
+    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M11.5 13.5001h2v-0.5422c-0.008 -0.7622 -0.209 -1.51 -0.5843 -2.1734 -0.3753 -0.6635 -0.9126 -1.22098 -1.5618 -1.62047 -0.4196 -0.25825 -0.8772 -0.44501 -1.3539 -0.55453" stroke-width="1"></path>
+  </symbol>
+  <symbol id="ip-icon-list" viewBox="0 0 14 14" fill="none">
+    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M1 3c0.27614 0 0.5 -0.22386 0.5 -0.5S1.27614 2 1 2c-0.276142 0 -0.5 0.22386 -0.5 0.5s0.223858 0.5 0.5 0.5Z" stroke-width="1"></path>
+    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M4.5 2.5h9" stroke-width="1"></path>
+    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M1 7.5c0.27614 0 0.5 -0.22386 0.5 -0.5s-0.22386 -0.5 -0.5 -0.5c-0.276142 0 -0.5 0.22386 -0.5 0.5s0.223858 0.5 0.5 0.5Z" stroke-width="1"></path>
+    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M4.5 7h9" stroke-width="1"></path>
+    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M1 12c0.27614 0 0.5 -0.2239 0.5 -0.5S1.27614 11 1 11c-0.276142 0 -0.5 0.2239 -0.5 0.5s0.223858 0.5 0.5 0.5Z" stroke-width="1"></path>
+    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M4.5 11.5h9" stroke-width="1"></path>
+  </symbol>
+  <symbol id="ip-icon-building" viewBox="0 0 14 14" fill="none">
+    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M8.46128 4.74988V1.59419c0 -0.56088 -0.45467 -1.015577 -1.01557 -1.015577H2.65523c-0.56089 0 -1.01558 0.454697 -1.01558 1.015577V13.421" stroke-width="1"></path>
+    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M0.518555 13.4214H5.4873" stroke-width="1"></path>
+    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m1.63965 3.18701 2.46012 0" stroke-width="1"></path>
+    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m1.63965 5.74951 3.84765 0" stroke-width="1"></path>
+    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M10.4804 10.032c0.9667 0 1.7503 -0.78369 1.7503 -1.75039 0 -0.9667 -0.7836 -1.75036 -1.7503 -1.75036 -0.96673 0 -1.75039 0.78366 -1.75039 1.75036 0 0.9667 0.78366 1.75039 1.75039 1.75039Z" stroke-width="1"></path>
+    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7.47864 13.421c0.00531 -0.5118 0.1394 -1.0139 0.38974 -1.4594 0.52756 -0.9388 1.54077 -1.5349 2.61202 -1.5373 1.0712 0.0024 2.0844 0.5985 2.612 1.5373 0.2503 0.4455 0.3844 0.9476 0.3897 1.4594" stroke-width="1"></path>
+  </symbol>
+  <symbol id="ip-icon-phone" viewBox="0 0 14 14" fill="none">
+    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M5.24782 12.9817c-0.61454 0.3964 -1.34685 0.5692 -2.0738 0.4893 -0.72694 -0.08 -1.40419 -0.4078 -1.91785 -0.9284l-0.449065 -0.4391C0.610232 11.9021 0.5 11.6317 0.5 11.3501c0 -0.2816 0.110232 -0.5521 0.307105 -0.7534L2.71312 8.71061c0.19969 -0.19624 0.46846 -0.3062 0.74844 -0.3062 0.27997 0 0.54875 0.10996 0.74843 0.3062 0.20137 0.19688 0.47181 0.30711 0.75343 0.30711 0.28162 0 0.55205 -0.11023 0.75342 -0.30711l2.99374 -2.99374c0.09987 -0.09842 0.17918 -0.21571 0.23331 -0.34505 0.05413 -0.12934 0.08201 -0.26816 0.08201 -0.40837 0 -0.14022 -0.02788 -0.27903 -0.08201 -0.40838 -0.05413 -0.12934 -0.13344 -0.24663 -0.23331 -0.34505 -0.19624 -0.19968 -0.3062 -0.46846 -0.3062 -0.74843 0 -0.27998 0.10996 -0.54875 0.3062 -0.74844L10.6066 0.817115c0.2014 -0.196874 0.4718 -0.307105 0.7534 -0.307105 0.2817 0 0.5521 0.110231 0.7535 0.307105l0.4391 0.449065c0.5205 0.51366 0.8483 1.19091 0.9283 1.91785 0.08 0.72695 -0.0928 1.45926 -0.4893 2.0738 -2.0657 3.04437 -4.69409 5.66597 -7.74378 7.72387Z" stroke-width="1"></path>
+  </symbol>
+  <symbol id="ip-icon-shield" viewBox="0 0 14 14" fill="none">
+    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7.35359 13.3836c-0.22977 0.0886 -0.4843 0.0886 -0.71407 0v0c-1.79285 -0.6884 -3.33473 -1.9043 -4.42196 -3.48738C1.13032 8.31318 0.548888 6.43757 0.550051 4.51713V1.54182c0 -0.26303 0.104489 -0.5153 0.290482 -0.701288 0.185997 -0.185993 0.438257 -0.290483 0.701287 -0.290483H12.4513c0.263 0 0.5153 0.10449 0.7013 0.290483 0.186 0.185988 0.2905 0.438258 0.2905 0.701288v2.97531c0.0011 1.92044 -0.5803 3.79605 -1.6675 5.37909 -1.0873 1.58308 -2.62915 2.79898 -4.42201 3.48738v0Z" stroke-width="1"></path>
+  </symbol>
+  <symbol id="ip-icon-user" viewBox="0 0 14 14" fill="none">
+    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 8c1.38071 0 2.5 -1.11929 2.5 -2.5S8.38071 3 7 3 4.5 4.11929 4.5 5.5 5.61929 8 7 8Z" stroke-width="1"></path>
+    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M2.72998 11.9c0.44624 -0.7325 1.07341 -1.3379 1.82121 -1.7579 0.7478 -0.42012 1.59108 -0.64076 2.44879 -0.64076 0.85771 0 1.70099 0.22064 2.44879 0.64076 0.74783 0.42 1.37493 1.0254 1.82123 1.7579" stroke-width="1"></path>
+    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 13.5c3.5899 0 6.5 -2.9101 6.5 -6.5C13.5 3.41015 10.5899 0.5 7 0.5 3.41015 0.5 0.5 3.41015 0.5 7c0 3.5899 2.91015 6.5 6.5 6.5Z" stroke-width="1"></path>
+  </symbol>
+</svg>
+
+{% assign hourNum = now | date: 'HH' | plus: 0 %} {% if hourNum < 10 %} {% assign ip_greeting = 'God morgon' %} {% elsif hourNum < 17 %} {% assign ip_greeting = 'God eftermiddag' %} {% else %} {% assign ip_greeting = 'God kväll' %} {% endif %} {% assign ip_firstname = user.fullname | split: ' ' | first %}
+
+<div class="ip-home">
+  <!-- Hero -->
+  <section class="ip-hero">
+    <div class="ip-hero-text">
+      <p class="ip-hero-eyebrow">{{ ip_greeting }} &middot; {{ now | date: 'dddd d MMMM' }}</p>
+      <h1>Välkommen till Internportalen{% if user.id %}, {{ ip_firstname }}{% endif %}!</h1>
+      <p class="ip-hero-sub">Din samlade startpunkt för kunskapsbank och verktyg på Kfast.</p>
+    </div>
+    <div class="ip-hero-search">
+      <div class="ip-search-box">
+        <svg><use href="#ip-icon-search" /></svg>
+        <input type="text" id="ip-search-input" placeholder="Sök i kunskapsbanken..." onkeypress="if(event.keyCode==13)ipSearch()" />
+        <button onclick="ipSearch()">Sök</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- KB:BEGIN – byggs från kunskapsbank-build/src/start-kb.html, ändra där -->
+  {%- comment -%} Startsidans mittdel: Utforska, Bläddra i kunskapsbanken och Utvalda artiklar. Byggs in mellan KB:BEGIN/KB:END i Start.sv-SE.webpage.copy.html av kunskapsbank-build/build.pl. Ärendehantering visas bara för webbrollen Administratör (samma kontroll som i kunskapsbanken). {%- endcomment -%} {%- assign isAdmin = false -%} {%- if user -%}{%- if user.roles contains 'Administratör' or user.roles contains 'Administratörer' or user.roles contains 'Administrators' -%}{%- assign isAdmin = true -%}{%- endif -%}{%- endif -%}
+
+  <!-- Quick links -->
+  <nav class="ip-quicklinks" aria-label="Genvägar">
+    <a href="/Kontakta oss" class="ip-quicklink"
+      ><svg><use href="#ip-icon-phone" /></svg>Kontakta oss</a
+    >
+    <a href="/Polisanmälan" class="ip-quicklink"
+      ><svg><use href="#ip-icon-shield" /></svg>Polisanmälan</a
+    >
+    {% if isAdmin %}<a href="Fast2/Ärende" class="ip-quicklink"
+      ><svg><use href="#ip-icon-list" /></svg>Mina ärenden</a
+    >{% endif %}
+    <a href="/Profil" class="ip-quicklink"
+      ><svg><use href="#ip-icon-user" /></svg>Min profil</a
+    >
+  </nav>
+
+  {% fetchxml ipKbTopicSet %}
+  <fetch version="1.0" mapping="logical">
+    <entity name="faq_topic">
+      <attribute name="faq_topicid" />
+      <attribute name="faq_topictitle" />
+      <attribute name="faq_topicdescription" />
+      <attribute name="faq_topicicon" />
+      <attribute name="faq_parenttopic" />
+      <order attribute="faq_topicorder" descending="false" />
+      <order attribute="faq_topictitle" descending="false" />
+      <filter type="or">
+        <condition attribute="faq_publishedstatus" operator="eq" value="1" />
+        <condition attribute="faq_publishedstatus" operator="null" />
+      </filter>
+    </entity>
+  </fetch>
+  {% endfetchxml %} {%- assign kbTopics = ipKbTopicSet.results.entities -%} {% fetchxml ipKbArticleSet %}
+  <fetch version="1.0" mapping="logical">
+    <entity name="faq_article">
+      <attribute name="faq_articleid" />
+      <attribute name="faq_articletitle" />
+      <attribute name="cr5ee_artikeltyp" />
+      <attribute name="faq_topic" />
+      <attribute name="modifiedon" />
+      <order attribute="modifiedon" descending="true" />
+      <filter type="and">
+        <condition attribute="faq_publishedstatus" operator="eq" value="1" />
+      </filter>
+    </entity>
+  </fetch>
+  {% endfetchxml %} {%- assign kbArticles = ipKbArticleSet.results.entities -%} {% fetchxml ipKbFeaturedSet %}
+  <fetch version="1.0" mapping="logical" top="6">
+    <entity name="faq_article">
+      <attribute name="faq_articleid" />
+      <attribute name="faq_articletitle" />
+      <attribute name="cr5ee_artikeltyp" />
+      <attribute name="faq_topic" />
+      <order attribute="faq_featuredarticleorder" descending="false" />
+      <filter type="and">
+        <condition attribute="faq_publishedstatus" operator="eq" value="1" />
+        <condition attribute="faq_featuredarticleorder" operator="gt" value="0" />
+      </filter>
+    </entity>
+  </fetch>
+  {% endfetchxml %} {%- assign ipFeatured = ipKbFeaturedSet.results.entities -%} {%- assign ipFeaturedTitle = 'Utvalda artiklar' -%} {%- if ipFeatured == nil or ipFeatured.size == 0 -%} {%- assign ipFeatured = kbArticles -%} {%- assign ipFeaturedTitle = 'Senast uppdaterat' -%} {%- endif -%}
+
+  <!-- Explore the portal -->
+  <section class="ip-section">
+    <div class="ip-section-head">
+      <h2>Utforska Internportalen</h2>
+    </div>
+    <div class="ip-cards-grid">
+      <a href="/Kunskapsbank/" class="ip-card">
+        <div class="ip-card-icon">
+          <svg><use href="#ip-icon-book" /></svg>
+        </div>
+        <div class="ip-card-body">
+          <h3>Kunskapsbank</h3>
+          <p>FAQ, lathundar, videos och instruktioner</p>
+        </div>
+        <div class="ip-card-arrow">
+          <svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false">
+            <g>
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m9.25 0.5 2.5 2.5 -2.5 2.5" stroke-width="1"></path>
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M12.25 8.25c0 1.03835 -0.3079 2.0534 -0.8848 2.9167 -0.5769 0.8634 -1.3968 1.5363 -2.35611 1.9337 -0.95931 0.3973 -2.01491 0.5013 -3.03331 0.2987 -1.0184 -0.2025 -1.95386 -0.7026 -2.68809 -1.4368 -0.73422 -0.7342 -1.23424 -1.6697 -1.43681 -2.68808 -0.20257 -1.0184 -0.09861 -2.074 0.29875 -3.03331 0.39736 -0.95931 1.07027 -1.77925 1.93363 -2.35613C4.94662 3.30791 5.96165 3 7 3h4.75" stroke-width="1"></path>
+            </g>
+          </svg>
+        </div>
+      </a>
+      <a href="/Kunskapsbank/?typ=faq" class="ip-card">
+        <div class="ip-card-icon">
+          <svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false">
+            <g>
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 13.5c3.5899 0 6.5 -2.9101 6.5 -6.5C13.5 3.41015 10.5899 0.5 7 0.5 3.41015 0.5 0.5 3.41015 0.5 7c0 3.5899 2.91015 6.5 6.5 6.5Z" stroke-width="1"></path>
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.24963c0 -0.34612 0.10273 -0.68446 0.2952 -0.97225 0.19246 -0.28778 0.46603 -0.51208 0.78609 -0.64454 0.32006 -0.13245 0.67225 -0.1671 1.01202 -0.09958 0.33978 0.06752 0.65188 0.23419 0.89685 0.47894 0.24496 0.24474 0.41178 0.55656 0.47937 0.89602 0.06758 0.33947 0.0329 0.69133 -0.09968 1.0111 -0.13257 0.31977 -0.35708 0.59308 -0.64513 0.78537 -0.28804 0.19229 -0.6267 0.29493 -0.97313 0.29493v1.16666" stroke-width="1"></path>
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 10.4585c-0.13807 0 -0.25 -0.1119 -0.25 -0.25s0.11193 -0.25 0.25 -0.25" stroke-width="1"></path>
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 10.4585c0.13807 0 0.25 -0.1119 0.25 -0.25s-0.11193 -0.25 -0.25 -0.25" stroke-width="1"></path>
+            </g>
+          </svg>
+        </div>
+        <div class="ip-card-body">
+          <h3>Vanliga frågor</h3>
+          <p>Snabba svar på det du undrar över</p>
+        </div>
+        <div class="ip-card-arrow">
+          <svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false">
+            <g>
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m9.25 0.5 2.5 2.5 -2.5 2.5" stroke-width="1"></path>
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M12.25 8.25c0 1.03835 -0.3079 2.0534 -0.8848 2.9167 -0.5769 0.8634 -1.3968 1.5363 -2.35611 1.9337 -0.95931 0.3973 -2.01491 0.5013 -3.03331 0.2987 -1.0184 -0.2025 -1.95386 -0.7026 -2.68809 -1.4368 -0.73422 -0.7342 -1.23424 -1.6697 -1.43681 -2.68808 -0.20257 -1.0184 -0.09861 -2.074 0.29875 -3.03331 0.39736 -0.95931 1.07027 -1.77925 1.93363 -2.35613C4.94662 3.30791 5.96165 3 7 3h4.75" stroke-width="1"></path>
+            </g>
+          </svg>
+        </div>
+      </a>
+      {% if isAdmin %}
+      <a href="Fast2/Ärendehantering" class="ip-card">
+        <div class="ip-card-icon">
+          <svg><use href="#ip-icon-list" /></svg>
+        </div>
+        <div class="ip-card-body">
+          <h3>Ärendehantering</h3>
+          <p>Skapa och följ upp dina ärenden</p>
+        </div>
+        <div class="ip-card-arrow">
+          <svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false">
+            <g>
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m9.25 0.5 2.5 2.5 -2.5 2.5" stroke-width="1"></path>
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M12.25 8.25c0 1.03835 -0.3079 2.0534 -0.8848 2.9167 -0.5769 0.8634 -1.3968 1.5363 -2.35611 1.9337 -0.95931 0.3973 -2.01491 0.5013 -3.03331 0.2987 -1.0184 -0.2025 -1.95386 -0.7026 -2.68809 -1.4368 -0.73422 -0.7342 -1.23424 -1.6697 -1.43681 -2.68808 -0.20257 -1.0184 -0.09861 -2.074 0.29875 -3.03331 0.39736 -0.95931 1.07027 -1.77925 1.93363 -2.35613C4.94662 3.30791 5.96165 3 7 3h4.75" stroke-width="1"></path>
+            </g>
+          </svg>
+        </div>
+      </a>
+      {% endif %}
+      <a href="/Kontakta oss" class="ip-card">
+        <div class="ip-card-icon">
+          <svg><use href="#ip-icon-phone" /></svg>
+        </div>
+        <div class="ip-card-body">
+          <h3>Kontakta oss</h3>
+          <p>Hör av dig med frågor eller synpunkter</p>
+        </div>
+        <div class="ip-card-arrow">
+          <svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false">
+            <g>
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m9.25 0.5 2.5 2.5 -2.5 2.5" stroke-width="1"></path>
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M12.25 8.25c0 1.03835 -0.3079 2.0534 -0.8848 2.9167 -0.5769 0.8634 -1.3968 1.5363 -2.35611 1.9337 -0.95931 0.3973 -2.01491 0.5013 -3.03331 0.2987 -1.0184 -0.2025 -1.95386 -0.7026 -2.68809 -1.4368 -0.73422 -0.7342 -1.23424 -1.6697 -1.43681 -2.68808 -0.20257 -1.0184 -0.09861 -2.074 0.29875 -3.03331 0.39736 -0.95931 1.07027 -1.77925 1.93363 -2.35613C4.94662 3.30791 5.96165 3 7 3h4.75" stroke-width="1"></path>
+            </g>
+          </svg>
+        </div>
+      </a>
+    </div>
+  </section>
+
+  <!-- Knowledge base topics -->
+  <section class="ip-section">
+    <div class="ip-section-head">
+      <h2>Bläddra i kunskapsbanken</h2>
+      <a href="/Kunskapsbank/"
+        >Visa alla ämnen
+        <svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false">
+          <g>
+            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m9.25 0.5 2.5 2.5 -2.5 2.5" stroke-width="1"></path>
+            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M12.25 8.25c0 1.03835 -0.3079 2.0534 -0.8848 2.9167 -0.5769 0.8634 -1.3968 1.5363 -2.35611 1.9337 -0.95931 0.3973 -2.01491 0.5013 -3.03331 0.2987 -1.0184 -0.2025 -1.95386 -0.7026 -2.68809 -1.4368 -0.73422 -0.7342 -1.23424 -1.6697 -1.43681 -2.68808 -0.20257 -1.0184 -0.09861 -2.074 0.29875 -3.03331 0.39736 -0.95931 1.07027 -1.77925 1.93363 -2.35613C4.94662 3.30791 5.96165 3 7 3h4.75" stroke-width="1"></path>
+          </g></svg
+      ></a>
+    </div>
+    {%- assign ipTopicCount = 0 -%}
+    <div class="ip-cards-grid">
+      {%- for t in kbTopics -%} {%- unless t.faq_parenttopic -%} {%- if ipTopicCount < 6 -%} {%- assign ipTopicCount = ipTopicCount | plus: 1 -%} {%- comment -%} Antal artiklar i ämnet, inklusive dess underämnen {%- endcomment -%} {%- assign ipArticleCount = 0 -%} {%- for article in kbArticles -%} {%- assign ipArticleTopic = article.faq_topic.id | default: '' -%} {%- if ipArticleTopic == t.faq_topicid -%} {%- assign ipArticleCount = ipArticleCount | plus: 1 -%} {%- else -%} {%- for s in kbTopics -%} {%- if s.faq_topicid == ipArticleTopic and s.faq_parenttopic and s.faq_parenttopic.id == t.faq_topicid -%}{%- assign ipArticleCount = ipArticleCount | plus: 1 -%}{%- endif -%} {%- endfor -%} {%- endif -%} {%- endfor -%}
+      <a href="/Kunskapsbank/?q={{ t.faq_topicid }}" class="ip-card">
+        <div class="ip-card-icon">
+          {% if t.faq_topicicon.Url %}<img src="{{ t.faq_topicicon.Url | escape }}" alt="" />{% else %}<svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false">
+            <g>
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7.00002 13.4999c-1.46476 -1.6127 -3.45121 -2.6572 -5.61 -2.95 -0.24572 -0.0272 -0.472659 -0.1445 -0.637017 -0.3291 -0.164358 -0.1847 -0.254484 -0.42371 -0.252985 -0.67092v-8.05c-0.000009 -0.14444 0.031272 -0.28717 0.091692 -0.41837C0.652129 0.950317 0.740253 0.833766 0.850018 0.739879 0.95785 0.6477 1.08406 0.579519 1.22027 0.539864c0.1362 -0.039655 0.27929 -0.049876 0.41975 -0.029985 2.06429 0.342607 3.95272 1.371381 5.36 2.920001V13.4999Z" stroke-width="1"></path>
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 13.4999c1.46476 -1.6127 3.4512 -2.6572 5.61 -2.95 0.2457 -0.0272 0.4727 -0.1445 0.637 -0.3291 0.1644 -0.1847 0.2545 -0.42371 0.253 -0.67092v-8.05c0 -0.14444 -0.0313 -0.28717 -0.0917 -0.41837 -0.0604 -0.131193 -0.1485 -0.247744 -0.2583 -0.341631 -0.1078 -0.092179 -0.234 -0.16036 -0.3702 -0.200015 -0.1363 -0.039655 -0.2793 -0.049876 -0.4198 -0.029985C10.2957 0.852486 8.40728 1.88126 7 3.42988V13.4999Z" stroke-width="1"></path>
+            </g></svg
+          >{% endif %}
+        </div>
+        <div class="ip-card-body">
+          <h3>{{ t.faq_topictitle | escape }}</h3>
+          {% if t.faq_topicdescription and t.faq_topicdescription != '' %}
+          <p>{{ t.faq_topicdescription | truncate: 70 | escape }}</p>
+          {% endif %}
+          <span class="ip-card-meta">{{ ipArticleCount }} {% if ipArticleCount == 1 %}artikel{% else %}artiklar{% endif %}</span>
+        </div>
+        <div class="ip-card-arrow">
+          <svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false">
+            <g>
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m9.25 0.5 2.5 2.5 -2.5 2.5" stroke-width="1"></path>
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M12.25 8.25c0 1.03835 -0.3079 2.0534 -0.8848 2.9167 -0.5769 0.8634 -1.3968 1.5363 -2.35611 1.9337 -0.95931 0.3973 -2.01491 0.5013 -3.03331 0.2987 -1.0184 -0.2025 -1.95386 -0.7026 -2.68809 -1.4368 -0.73422 -0.7342 -1.23424 -1.6697 -1.43681 -2.68808 -0.20257 -1.0184 -0.09861 -2.074 0.29875 -3.03331 0.39736 -0.95931 1.07027 -1.77925 1.93363 -2.35613C4.94662 3.30791 5.96165 3 7 3h4.75" stroke-width="1"></path>
+            </g>
+          </svg>
+        </div>
+      </a>
+      {%- endif -%} {%- endunless -%} {%- endfor -%}
+    </div>
+    {% if ipTopicCount == 0 %}
+    <p class="ip-kb-empty">Inga ämnen är publicerade ännu.</p>
+    {% endif %}
+  </section>
+
+  <!-- Featured articles -->
+  {% if ipFeatured and ipFeatured.size > 0 %}
+  <section class="ip-section">
+    <div class="ip-section-head">
+      <h2>{{ ipFeaturedTitle }}</h2>
+      <a href="/Kunskapsbank/"
+        >Visa alla artiklar
+        <svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false">
+          <g>
+            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m9.25 0.5 2.5 2.5 -2.5 2.5" stroke-width="1"></path>
+            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M12.25 8.25c0 1.03835 -0.3079 2.0534 -0.8848 2.9167 -0.5769 0.8634 -1.3968 1.5363 -2.35611 1.9337 -0.95931 0.3973 -2.01491 0.5013 -3.03331 0.2987 -1.0184 -0.2025 -1.95386 -0.7026 -2.68809 -1.4368 -0.73422 -0.7342 -1.23424 -1.6697 -1.43681 -2.68808 -0.20257 -1.0184 -0.09861 -2.074 0.29875 -3.03331 0.39736 -0.95931 1.07027 -1.77925 1.93363 -2.35613C4.94662 3.30791 5.96165 3 7 3h4.75" stroke-width="1"></path>
+          </g></svg
+      ></a>
+    </div>
+    <div class="ip-cards-grid">
+      {% for article in ipFeatured limit: 6 %} {%- assign typeLabel = article['cr5ee_artikeltyp@OData.Community.Display.V1.FormattedValue'] -%} {%- if typeLabel == nil or typeLabel == '' -%}{%- assign typeLabel = article.cr5ee_artikeltyp.label -%}{%- endif -%} {%- if typeLabel == nil or typeLabel == '' -%}{%- assign typeLabel = article.cr5ee_artikeltyp.Label -%}{%- endif -%} {%- assign typeKey = typeLabel | default: '' | downcase -%} {%- unless typeKey == 'faq' or typeKey == 'lathund' or typeKey == 'video' or typeKey == 'instruktion' -%}{%- assign typeKey = 'artikel' -%}{%- assign typeLabel = 'Artikel' -%}{%- endunless -%}
+      <a href="/Artiklar/?q={{ article.faq_articleid }}{% if article.faq_topic %}&amp;t={{ article.faq_topic.id }}{% endif %}" class="ip-card">
+        <div class="ip-card-icon kb-type-{{ typeKey }}">
+          {%- case typeKey -%}{%- when 'faq' -%}<svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false">
+            <g>
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 13.5c3.5899 0 6.5 -2.9101 6.5 -6.5C13.5 3.41015 10.5899 0.5 7 0.5 3.41015 0.5 0.5 3.41015 0.5 7c0 3.5899 2.91015 6.5 6.5 6.5Z" stroke-width="1"></path>
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.24963c0 -0.34612 0.10273 -0.68446 0.2952 -0.97225 0.19246 -0.28778 0.46603 -0.51208 0.78609 -0.64454 0.32006 -0.13245 0.67225 -0.1671 1.01202 -0.09958 0.33978 0.06752 0.65188 0.23419 0.89685 0.47894 0.24496 0.24474 0.41178 0.55656 0.47937 0.89602 0.06758 0.33947 0.0329 0.69133 -0.09968 1.0111 -0.13257 0.31977 -0.35708 0.59308 -0.64513 0.78537 -0.28804 0.19229 -0.6267 0.29493 -0.97313 0.29493v1.16666" stroke-width="1"></path>
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 10.4585c-0.13807 0 -0.25 -0.1119 -0.25 -0.25s0.11193 -0.25 0.25 -0.25" stroke-width="1"></path>
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 10.4585c0.13807 0 0.25 -0.1119 0.25 -0.25s-0.11193 -0.25 -0.25 -0.25" stroke-width="1"></path>
+            </g></svg
+          >{%- when 'lathund' -%}<svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false">
+            <g>
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M8.5 0.5h-3c-0.55228 0 -1 0.447715 -1 1V2c0 0.55228 0.44772 1 1 1h3c0.55228 0 1 -0.44772 1 -1v-0.5c0 -0.552285 -0.44772 -1 -1 -1Z" stroke-width="1"></path>
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M9.75 1.5h1.5c0.2652 0 0.5196 0.10536 0.7071 0.29289 0.1875 0.18754 0.2929 0.44189 0.2929 0.70711v10c0 0.2652 -0.1054 0.5196 -0.2929 0.7071s-0.4419 0.2929 -0.7071 0.2929h-8.5c-0.26522 0 -0.51957 -0.1054 -0.70711 -0.2929 -0.18753 -0.1875 -0.29289 -0.4419 -0.29289 -0.7071v-10c0 -0.26522 0.10536 -0.51957 0.29289 -0.70711C2.23043 1.60536 2.48478 1.5 2.75 1.5h1.5" stroke-width="1"></path>
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m5 9 1.5 1 3 -4" stroke-width="1"></path>
+            </g></svg
+          >{%- when 'video' -%}<svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false">
+            <g>
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M13.23 6.2463c0.1658 0.20672 0.2576 0.47529 0.2576 0.75376s-0.0918 0.54704 -0.2576 0.75376c-1.05 1.27127 -3.44003 3.74628 -6.23003 3.74628s-5.18 -2.47501 -6.230002 -3.74628c-0.16584 -0.20672 -0.257639 -0.47529 -0.257639 -0.75376s0.091799 -0.54704 0.257639 -0.75376C1.81997 4.97503 4.20997 2.5 6.99997 2.5S12.18 4.97503 13.23 6.2463Z" stroke-width="1"></path>
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 9c1.10457 0 2 -0.89543 2 -2s-0.89543 -2 -2 -2 -2 0.89543 -2 2 0.89543 2 2 2Z" stroke-width="1"></path>
+            </g></svg
+          >{%- when 'instruktion' -%}<svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false">
+            <g>
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7.00002 13.4999c-1.46476 -1.6127 -3.45121 -2.6572 -5.61 -2.95 -0.24572 -0.0272 -0.472659 -0.1445 -0.637017 -0.3291 -0.164358 -0.1847 -0.254484 -0.42371 -0.252985 -0.67092v-8.05c-0.000009 -0.14444 0.031272 -0.28717 0.091692 -0.41837C0.652129 0.950317 0.740253 0.833766 0.850018 0.739879 0.95785 0.6477 1.08406 0.579519 1.22027 0.539864c0.1362 -0.039655 0.27929 -0.049876 0.41975 -0.029985 2.06429 0.342607 3.95272 1.371381 5.36 2.920001V13.4999Z" stroke-width="1"></path>
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 13.4999c1.46476 -1.6127 3.4512 -2.6572 5.61 -2.95 0.2457 -0.0272 0.4727 -0.1445 0.637 -0.3291 0.1644 -0.1847 0.2545 -0.42371 0.253 -0.67092v-8.05c0 -0.14444 -0.0313 -0.28717 -0.0917 -0.41837 -0.0604 -0.131193 -0.1485 -0.247744 -0.2583 -0.341631 -0.1078 -0.092179 -0.234 -0.16036 -0.3702 -0.200015 -0.1363 -0.039655 -0.2793 -0.049876 -0.4198 -0.029985C10.2957 0.852486 8.40728 1.88126 7 3.42988V13.4999Z" stroke-width="1"></path>
+            </g></svg
+          >{%- else -%}<svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false">
+            <g>
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M9 2.5H3c-0.55228 0 -1 0.44772 -1 1v9c0 0.5523 0.44772 1 1 1h6c0.55228 0 1 -0.4477 1 -1v-9c0 -0.55228 -0.44772 -1 -1 -1Z" stroke-width="1"></path>
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M4 5h4" stroke-width="1"></path>
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M4 7.5h4" stroke-width="1"></path>
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M4 10h2" stroke-width="1"></path>
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M4.5 0.5H11c0.2652 0 0.5196 0.105357 0.7071 0.292893C11.8946 0.98043 12 1.23478 12 1.5V11" stroke-width="1"></path>
+            </g></svg
+          >{%- endcase -%}
+        </div>
+        <div class="ip-card-body">
+          <h3>{{ article.faq_articletitle | escape }}</h3>
+          <p>{{ typeLabel | escape }}{% if article.faq_topic %} · {{ article.faq_topic.name | escape }}{% endif %}</p>
+        </div>
+        <div class="ip-card-arrow">
+          <svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false">
+            <g>
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m9.25 0.5 2.5 2.5 -2.5 2.5" stroke-width="1"></path>
+              <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M12.25 8.25c0 1.03835 -0.3079 2.0534 -0.8848 2.9167 -0.5769 0.8634 -1.3968 1.5363 -2.35611 1.9337 -0.95931 0.3973 -2.01491 0.5013 -3.03331 0.2987 -1.0184 -0.2025 -1.95386 -0.7026 -2.68809 -1.4368 -0.73422 -0.7342 -1.23424 -1.6697 -1.43681 -2.68808 -0.20257 -1.0184 -0.09861 -2.074 0.29875 -3.03331 0.39736 -0.95931 1.07027 -1.77925 1.93363 -2.35613C4.94662 3.30791 5.96165 3 7 3h4.75" stroke-width="1"></path>
+            </g>
+          </svg>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+  <!-- KB:END -->
+</div>
+
+<script>
+  function ipSearch() {
+    var input = document.getElementById('ip-search-input');
+    var query = input.value.trim();
+    if (query) {
+      window.sessionStorage.setItem('query', query);
+      window.location.href = '/Kunskapsbank/?search=' + encodeURIComponent(query);
+    }
+  }
+</script>
+<div class="row sectionBlockLayout text-start" style="display: flex; flex-wrap: wrap; margin: 0px; min-height: auto; padding: 8px;">
+  <div class="container" style="padding: 0px; display: flex; flex-wrap: wrap;"><div class="col-lg-12 columnBlockLayout" style="flex-grow: 1; display: flex; flex-direction: column; min-width: 250px;"></div></div>
+</div>

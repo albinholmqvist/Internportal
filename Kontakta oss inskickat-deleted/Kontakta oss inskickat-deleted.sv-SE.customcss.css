@@ -1,0 +1,10 @@
+.confirmation-container {
+    height: 500px;
+    width: 500px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    background-color: #F0EEE8;
+    padding: 10%;
+    gap: 20px;
+}

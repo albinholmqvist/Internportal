@@ -1,0 +1,17 @@
+<div class='row sectionBlockLayout text-start' style='display: flex; flex-wrap: wrap; margin: 0px; min-height: auto; padding: 8px;'>
+  <div class='container' style='padding: 0px; display: flex; flex-wrap: wrap;'>
+    <h1 class='form-title' style='font-weight: 600; padding-left: 29px; margin-bottom: 23px; position: relative; z-index: 2; left: 85px; top: 235px;'>​{% editable snippets 'SubtopicDetails' type: 'text' %}</h1>
+    <div class='col-lg-12 columnBlockLayout' style='flex-grow: 1; display: flex; flex-direction: column; min-width: 300px;'>
+      <a href='/admin-topics' value='admin-topics' class='category-list-a'> <img id='img-back-breadcrumb' alt='sökväg tillbaka' src='/back-breadcrumb.png'>{{ snippets.BackToTopics }}</a>{% entityform name: 'Create Subtopic' %}
+    </div>
+    <a
+      href='/Admin-Articles'
+      role='link'
+      aria-label='Avbryt'
+      class='cancel'
+      style='display: flex; align-items: center; justify-content: center; color: rgb(14, 81, 203); background-color: transparent; border-top-width: 2px; border-right-width: 2px; border-bottom-width: 2px; border-left-width: 2px; border-top-style: solid; border-right-style: solid; border-bottom-style: solid; border-left-style: solid; border-top-color: rgb(14, 81, 203); border-right-color: rgb(14, 81, 203); border-bottom-color: rgb(14, 81, 203); border-left-color: rgb(14, 81, 203); border-image-source: initial; border-image-slice: initial; border-image-width: initial; border-image-outset: initial; border-image-repeat: initial; cursor: pointer; position: relative; bottom: 212px; left: 175px; height: 50px; width: 75px; border-top-left-radius: 8px; border-top-right-radius: 8px; border-bottom-right-radius: 8px; border-bottom-left-radius: 8px; font-weight: 600;'
+    >
+      {{- snippets.Cancel -}}
+    </a>
+  </div>
+</div>

@@ -1,0 +1,610 @@
+{% comment %} Sprint - Hantering av sprints och backlog Jira-liknande vy för sprint-planering {% endcomment %} {%- assign activeSprintId = request.params.sprint | default: '' -%} {% comment %}Hämta alla sprints{% endcomment %} {% fetchxml sprintsSet %}
+<fetch version="1.0" mapping="logical">
+  <entity name="cr5ee_sprint">
+    <attribute name="cr5ee_name" />
+    <attribute name="cr5ee_sprintid" />
+    <attribute name="cr5ee_start" />
+    <attribute name="cr5ee_slut" />
+    <attribute name="cr5ee_mal" />
+    <attribute name="cr5ee_status" />
+    <order attribute="cr5ee_start" descending="false" />
+  </entity>
+</fetch>
+{% endfetchxml %} {% assign sprints = sprintsSet.results.entities %} {% comment %}Hämta ärenden för vald sprint{% endcomment %} {% if activeSprintId != '' %} {% fetchxml sprintArenden %}
+<fetch version="1.0" mapping="logical">
+  <entity name="cr5ee_arenden">
+    <attribute name="cr5ee_arendenid" />
+    <attribute name="cr5ee_name" />
+    <attribute name="cr5ee_prioritet" />
+    <attribute name="cr5ee_status" />
+    <attribute name="cr5ee_sprint" />
+    <filter type="and">
+      <condition attribute="cr5ee_sprint" operator="eq" value="{{ activeSprintId }}" />
+    </filter>
+    <order attribute="cr5ee_prioritet" descending="true" />
+  </entity>
+</fetch>
+{% endfetchxml %} {% assign sprintEntities = sprintArenden.results.entities %} {% endif %}
+
+<style>
+  /* === SPRINT PAGE STYLES === */
+  :root {
+    --brand-primary: #E47203;
+    --brand-secondary: #f18e35;
+    --brand-dark: #333333;
+    --brand-teal: #33bdc6;
+    --gray-light: #DCDCDC;
+    --gray-bg: #f5f5f5;
+  }
+
+  .sprint-page {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--gray-bg);
+    min-height: calc(100vh - 120px);
+    padding: 24px;
+  }
+
+  /* Header */
+  .sprint-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .sprint-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .sprint-title h1 {
+    margin: 0;
+    font-size: 24px;
+    color: var(--brand-dark);
+  }
+
+  .sprint-actions {
+    display: flex;
+    gap: 12px;
+  }
+
+  .sprint-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 18px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s ease;
+  }
+
+  .sprint-btn-primary {
+    background: var(--brand-primary);
+    color: white;
+    border: none;
+  }
+
+  .sprint-btn-primary:hover {
+    background: var(--brand-secondary);
+    color: white;
+    text-decoration: none;
+  }
+
+  .sprint-btn-secondary {
+    background: white;
+    color: var(--brand-dark);
+    border: 1px solid var(--gray-light);
+  }
+
+  .sprint-btn-secondary:hover {
+    border-color: var(--brand-primary);
+    color: var(--brand-primary);
+    text-decoration: none;
+  }
+
+  /* Layout */
+  .sprint-layout {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 24px;
+  }
+
+  @media (max-width: 991px) {
+    .sprint-layout {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* Sidebar - Sprint List */
+  .sprint-sidebar {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+
+  .sprint-sidebar-header {
+    background: var(--brand-dark);
+    color: white;
+    padding: 16px;
+    font-weight: 600;
+    font-size: 14px;
+  }
+
+  .sprint-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .sprint-item {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--gray-light);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .sprint-item:hover {
+    background: #fafafa;
+  }
+
+  .sprint-item.active {
+    background: rgba(228, 114, 3, 0.1);
+    border-left: 3px solid var(--brand-primary);
+  }
+
+  .sprint-item-name {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--brand-dark);
+    margin-bottom: 4px;
+  }
+
+  .sprint-item-dates {
+    font-size: 12px;
+    color: #888;
+  }
+
+  .sprint-item-status {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    margin-top: 6px;
+  }
+
+  .sprint-item-status.planerad {
+    background: #e0e7ff;
+    color: #4338ca;
+  }
+
+  .sprint-item-status.aktiv {
+    background: #dcfce7;
+    color: #16a34a;
+  }
+
+  .sprint-item-status.avslutad {
+    background: #f3f4f6;
+    color: #6b7280;
+  }
+
+  /* Main Content */
+  .sprint-main {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+
+  .sprint-main-header {
+    background: linear-gradient(135deg, var(--brand-primary), var(--brand-secondary));
+    color: white;
+    padding: 20px 24px;
+  }
+
+  .sprint-main-title {
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0 0 8px 0;
+  }
+
+  .sprint-main-meta {
+    display: flex;
+    gap: 24px;
+    font-size: 13px;
+    opacity: 0.9;
+  }
+
+  .sprint-main-body {
+    padding: 24px;
+  }
+
+  /* Sprint Goal */
+  .sprint-goal {
+    background: #fef3c7;
+    border: 1px solid #fde68a;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 24px;
+  }
+
+  .sprint-goal-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #92400e;
+    margin-bottom: 6px;
+  }
+
+  .sprint-goal-text {
+    font-size: 14px;
+    color: #78350f;
+  }
+
+  /* Backlog Table */
+  .backlog-section {
+    margin-top: 24px;
+  }
+
+  .backlog-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+
+  .backlog-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--brand-dark);
+  }
+
+  .backlog-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .backlog-table th {
+    background: var(--brand-dark);
+    color: white;
+    padding: 12px 16px;
+    text-align: left;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .backlog-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--gray-light);
+    font-size: 14px;
+  }
+
+  .backlog-table tr:hover {
+    background: #fafafa;
+  }
+
+  .backlog-id {
+    font-weight: 600;
+    color: var(--brand-primary);
+  }
+
+  .priority-badge {
+    display: inline-flex;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+  }
+
+  .priority-badge.kritisk { background: #fee2e2; color: #dc2626; }
+  .priority-badge.hög { background: #fef3c7; color: #d97706; }
+  .priority-badge.normal { background: #dbeafe; color: #2563eb; }
+  .priority-badge.låg { background: #d1fae5; color: #059669; }
+
+  .status-badge {
+    display: inline-flex;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+  }
+
+  .status-badge.aktiv { background: #dbeafe; color: #2563eb; }
+  .status-badge.pågående { background: #fef3c7; color: #d97706; }
+  .status-badge.klar { background: #dcfce7; color: #16a34a; }
+
+  /* Empty State */
+  .sprint-empty {
+    text-align: center;
+    padding: 60px 24px;
+    color: #888;
+  }
+
+  .sprint-empty-icon {
+    font-size: 64px;
+    margin-bottom: 16px;
+    opacity: 0.4;
+  }
+
+  .sprint-empty-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--brand-dark);
+    margin-bottom: 8px;
+  }
+
+  /* Create Sprint Form */
+  .create-sprint-form {
+    display: none;
+    padding: 24px;
+    background: white;
+    border-radius: 12px;
+    margin-bottom: 24px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+
+  .create-sprint-form.show {
+    display: block;
+  }
+
+  .form-group {
+    margin-bottom: 16px;
+  }
+
+  .form-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--brand-dark);
+    margin-bottom: 6px;
+  }
+
+  .form-input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid var(--gray-light);
+    border-radius: 6px;
+    font-size: 14px;
+  }
+
+  .form-input:focus {
+    outline: none;
+    border-color: var(--brand-primary);
+    box-shadow: 0 0 0 3px rgba(228, 114, 3, 0.1);
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  @media (max-width: 576px) {
+    .form-row {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<div class="sprint-page">
+  <!-- Header -->
+  <div class="sprint-header">
+    <div class="sprint-title">
+      <h1>🏃 Sprints</h1>
+    </div>
+    <div class="sprint-actions">
+      <button class="sprint-btn sprint-btn-primary" id="btnNewSprint">+ Ny Sprint</button>
+      <a href="/Kanban" class="sprint-btn sprint-btn-secondary"> 📋 Till Kanban </a>
+    </div>
+  </div>
+
+  <!-- Create Sprint Form (hidden by default) -->
+  <div class="create-sprint-form" id="createSprintForm">
+    <h3 style="margin: 0 0 16px 0; color: var(--brand-dark);">Skapa ny sprint</h3>
+    <form id="sprintForm">
+      <div class="form-group">
+        <label class="form-label">Sprint-namn</label>
+        <input type="text" class="form-input" id="sprintName" required placeholder="t.ex. Sprint 1 - 2024" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Start-datum</label>
+          <input type="date" class="form-input" id="sprintStart" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Slut-datum</label>
+          <input type="date" class="form-input" id="sprintEnd" required />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Sprint-mål</label>
+        <textarea class="form-input" id="sprintGoal" rows="3" placeholder="Vad ska uppnås i denna sprint?"></textarea>
+      </div>
+      <div class="sprint-actions">
+        <button type="submit" class="sprint-btn sprint-btn-primary">Spara sprint</button>
+        <button type="button" class="sprint-btn sprint-btn-secondary" id="btnCancelSprint">Avbryt</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Layout -->
+  <div class="sprint-layout">
+    <!-- Sidebar -->
+    <div class="sprint-sidebar">
+      <div class="sprint-sidebar-header">📂 Alla Sprints</div>
+      <ul class="sprint-list">
+        {% if sprints and sprints.size > 0 %} {% for sprint in sprints %} {%- assign status_label = sprint['cr5ee_status@OData.Community.Display.V1.FormattedValue'] -%}
+        <li class="sprint-item {% if activeSprintId == sprint.cr5ee_sprintid %}active{% endif %}" data-id="{{ sprint.cr5ee_sprintid }}">
+          <div class="sprint-item-name">{{ sprint.cr5ee_name }}</div>
+          <div class="sprint-item-dates">{% if sprint.cr5ee_start %}{{ sprint.cr5ee_start | date: 'yyyy-MM-dd' }}{% else %}- {% endif %} → {% if sprint.cr5ee_slut %}{{ sprint.cr5ee_slut | date: 'yyyy-MM-dd' }}{% else %}- {% endif %}</div>
+          {% if status_label %}
+          <span class="sprint-item-status {{ status_label | downcase }}">{{ status_label }}</span>
+          {% endif %}
+        </li>
+        {% endfor %} {% else %}
+        <li class="sprint-item">
+          <div class="sprint-empty">
+            <p>Inga sprints finns ännu</p>
+          </div>
+        </li>
+        {% endif %}
+      </ul>
+    </div>
+
+    <!-- Main Content -->
+    <div class="sprint-main">
+      {% if activeSprintId != '' and sprintEntities and sprintEntities.size > 0 %} {% comment %}Hämta sprint-info{% endcomment %} {% for sprint in sprints %} {% if sprint.cr5ee_sprintid == activeSprintId %}
+      <div class="sprint-main-header">
+        <h2 class="sprint-main-title">{{ sprint.cr5ee_namn }}</h2>
+        <div class="sprint-main-meta">
+          <span>📅 {{ sprint.cr5ee_start | date: 'yyyy-MM-dd' }} → {{ sprint.cr5ee_slut | date: 'yyyy-MM-dd' }}</span>
+          <span>📊 {{ sprintEntities.size }} ärenden</span>
+        </div>
+      </div>
+      <div class="sprint-main-body">
+        {% if sprint.cr5ee_mal %}
+        <div class="sprint-goal">
+          <div class="sprint-goal-label">🎯 Sprint-mål</div>
+          <div class="sprint-goal-text">{{ sprint.cr5ee_mal }}</div>
+        </div>
+        {% endif %}
+
+        <div class="backlog-section">
+          <div class="backlog-header">
+            <h3 class="backlog-title">📋 Backlog</h3>
+          </div>
+          <table class="backlog-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Ärenderubrik</th>
+                <th>Prioritet</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for arende in sprintEntities %} {%- assign prio_label = arende['cr5ee_prioritet@OData.Community.Display.V1.FormattedValue'] -%} {%- assign status_label = arende['cr5ee_status@OData.Community.Display.V1.FormattedValue'] -%}
+              <tr onclick="window.location.href='/Ärendedetalj?id={{ arende.cr5ee_arendenid }}'" style="cursor:pointer;">
+                <td class="backlog-id">{% if arende.cr5ee_arendeid %}{{ arende.cr5ee_arendeid }}{% else %}{{ arende.cr5ee_arendenid | slice: 0, 8 }}{% endif %}</td>
+                <td>{{ arende.cr5ee_name | escape | truncate: 40 }}</td>
+                <td>
+                  {% if prio_label %}
+                  <span class="priority-badge {{ prio_label | downcase }}">{{ prio_label }}</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if status_label %}
+                  <span class="status-badge {{ status_label | downcase }}">{{ status_label }}</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endif %} {% endfor %} {% else %}
+      <div class="sprint-main-header">
+        <h2 class="sprint-main-title">Välj en sprint</h2>
+      </div>
+      <div class="sprint-main-body">
+        <div class="sprint-empty">
+          <div class="sprint-empty-icon">🏃</div>
+          <div class="sprint-empty-title">Ingen sprint vald</div>
+          <p>Klicka på en sprint i listan till vänster för att visa dess innehåll</p>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<script>
+  (function() {
+    // Sprint click navigation
+    var sprintItems = document.querySelectorAll('.sprint-item[data-id]');
+    sprintItems.forEach(function(item) {
+      item.addEventListener('click', function() {
+        var sprintId = item.getAttribute('data-id');
+        window.location.href = '/Sprint?sprint=' + sprintId;
+      });
+    });
+
+    // New Sprint button
+    var btnNewSprint = document.getElementById('btnNewSprint');
+    var btnCancelSprint = document.getElementById('btnCancelSprint');
+    var createForm = document.getElementById('createSprintForm');
+
+    if (btnNewSprint && createForm) {
+      btnNewSprint.addEventListener('click', function() {
+        createForm.classList.toggle('show');
+      });
+    }
+
+    if (btnCancelSprint && createForm) {
+      btnCancelSprint.addEventListener('click', function() {
+        createForm.classList.remove('show');
+      });
+    }
+
+    // Form submission
+    var sprintForm = document.getElementById('sprintForm');
+    if (sprintForm) {
+      sprintForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        var name = document.getElementById('sprintName').value;
+        var start = document.getElementById('sprintStart').value;
+        var end = document.getElementById('sprintEnd').value;
+        var goal = document.getElementById('sprintGoal').value;
+
+        // Skapa sprint via API
+        createSprint(name, start, end, goal);
+      });
+    }
+
+    function createSprint(name, start, end, goal) {
+      var apiUrl = '/_api/cr5ee_sprints';
+
+      var data = {
+        'cr5ee_namn': name,
+        'cr5ee_start': start,
+        'cr5ee_slut': end,
+        'cr5ee_mal': goal,
+        'cr5ee_status': 1 // Planerad
+      };
+
+      fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(data)
+      })
+      .then(function(response) {
+        if (response.ok) {
+          alert('Sprint skapad!');
+          window.location.reload();
+        } else {
+          alert('Kunde inte skapa sprint');
+        }
+      })
+      .catch(function(error) {
+        console.error('Error:', error);
+        alert('Fel vid skapande av sprint');
+      });
+    }
+  })();
+</script>
+<div class="row sectionBlockLayout text-start" style="display: flex; flex-wrap: wrap; margin: 0px; min-height: auto; padding: 8px;">
+  <div class="container" style="padding: 0px; display: flex; flex-wrap: wrap;"><div class="col-lg-12 columnBlockLayout" style="flex-grow: 1; display: flex; flex-direction: column; min-width: 250px;"></div></div>
+</div>

@@ -1,0 +1,736 @@
+{% comment %}
+Ärenden - List view med sök och filtrering
+Default döljer "Slutförd"/"Makulerad" (kan visas via checkbox).
+Sortera efter: Skapad, ÄrendeID, Namn, Prioritet (optionset sorteras på Value server-side).
+
+Fält i databasen:
+- cr5ee_arendenid (GUID) - Primärnyckel
+- cr5ee_arendeid (String) - Ärende-ID
+- cr5ee_name (String) - Titel
+- createdon (DateTime) - Skapad
+- cr5ee_prioritet (Val/Choice) - Prioritet (Kritisk=10, Hög=7, Normal=4, Låg=1)
+- cr5ee_status (Val/Choice) - Ärendestatus
+- cr5ee_bestallare (Lookup) - Beställare
+- cr5ee_typ (Val/Choice) - Typ (System=10, Önskemål=5, Blå=1, Ärende=100)
+- cr5ee_klassificering (Val/Choice) - Klassificering (Incident=10, Problem=20, Förfrågan=30)
+- cr5ee_applikation (Val/Choice) - Applikation (Fast2 Desktop=10, Fast2 Mobilen=20, Fast2 Portalen=30, Admin=40)
+{% endcomment %}
+
+{%- assign qId        = request.params.qId        | default: '' | strip -%}
+{%- assign qName      = request.params.qName      | default: '' | strip -%}
+{%- assign sortBy     = request.params.sortBy     | default: 'createdon' | strip -%}
+{%- assign sortDir    = request.params.sortDir    | default: 'desc' | downcase | strip -%}
+{%- assign statusView = request.params.status     | default: 'open' | strip -%}
+{%- assign selectedForm = request.params.form      | default: 'fast2' | strip -%}
+{%- assign kommunalForm = request.params.kommunalForm | default: 'kommunal' | strip -%}
+{%- assign showSuccess   = request.params.success   | default: '' | strip -%}
+
+{%- comment -%}
+Fil(er) väljs i SAMMA formulär (se filväljaren inuti #active-form-container
+nedan) men laddas upp av JS EFTER att sidan laddats om via entityformens
+postback - dit går inte att komma runt (klassiskt WebForms-formulär). Filen
+mellanlagras lokalt i webbläsaren (IndexedDB) när den väljs, och laddas upp
+automatiskt - utan synlig extra knapp eller steg - så fort vi landar tillbaka
+här med ?success=1. Vi slår då upp användarens senast skapade ärende, som är
+det ärende filen ska bindas till.
+{%- endcomment -%}
+{%- assign justCreatedArende = nil -%}
+{%- if showSuccess == '1' and user.id -%}
+  {% fetchxml justCreatedSet %}
+  <fetch version="1.0" mapping="logical" distinct="false" top="1">
+    <entity name="cr5ee_arenden">
+      <attribute name="cr5ee_arendenid" />
+      <order attribute="createdon" descending="true" />
+      <filter type="and">
+        <condition attribute="cr5ee_bestallare" operator="eq" value="{{ user.id }}" />
+      </filter>
+    </entity>
+  </fetch>
+  {% endfetchxml %}
+  {%- assign justCreatedItems = justCreatedSet.results.entities -%}
+  {%- if justCreatedItems and justCreatedItems.size > 0 -%}
+    {%- assign justCreatedArende = justCreatedItems.first -%}
+  {%- endif -%}
+{%- endif -%}
+
+{%- comment -%}
+Statusvy för uppföljning: 'open' (default, döljer Slutförd/Makulerad),
+'closed' (visar bara Slutförd/Makulerad), 'all' (visar allt).
+{%- endcomment -%}
+{%- assign toolbar_title = 'Öppna ärenden' -%}
+{%- if statusView == 'closed' -%}
+  {%- assign toolbar_title = 'Avslutade ärenden' -%}
+{%- elsif statusView == 'all' -%}
+  {%- assign toolbar_title = 'Alla ärenden' -%}
+{%- endif -%}
+
+{%- comment -%} Tillåtna sorteringsfält {%- endcomment -%}
+{%- assign order_attr = 'createdon' -%}
+{%- if sortBy == 'cr5ee_arendeid' or sortBy == 'cr5ee_name' or sortBy == 'createdon' or sortBy == 'cr5ee_prioritet' -%}
+  {%- assign order_attr = sortBy -%}
+{%- endif -%}
+
+{%- comment -%} 
+För prioritet: använd alltid server-side sortering men undvik Fel ordning.
+Om sorteringen inte fungerar korrekt kan vi hantera det i JavaScript.
+{%- endcomment -%}
+
+{%- comment -%} 'true' = desc, 'false' = asc {%- endcomment -%}
+{%- assign order_desc = 'true' -%}
+{%- if sortDir == 'asc' -%}
+  {%- assign order_desc = 'false' -%}
+{%- endif -%}
+
+{% comment %}
+FetchXML – sök + sort (server-side).
+Obs: optionset (cr5ee_prioritet) i <order> sorteras på Value per Dataverse/FetchXML.
+{% endcomment %}
+{% fetchxml arendenSet %}
+<fetch version="1.0" mapping="logical" distinct="false">
+  <entity name="cr5ee_arenden">
+
+    <attribute name="cr5ee_arendeid" />
+    <attribute name="cr5ee_name" />
+    <attribute name="createdon" />
+    <attribute name="cr5ee_prioritet" />
+    <attribute name="cr5ee_status" />
+    <attribute name="cr5ee_bestallare" />
+    <attribute name="cr5ee_typ" />
+    <attribute name="cr5ee_klassificering" />
+    <attribute name="cr5ee_applikation" />
+
+    <!-- SORTERING -->
+    <order attribute="{{ order_attr }}" descending="{{ order_desc }}" />
+
+    <!-- HUVUDFILTER: visa endast egna + system -->
+    <filter type="or">
+      <condition attribute="cr5ee_bestallare" operator="eq" value="{{ user.id }}" />
+
+      <!-- OBS: om cr5ee_typ är Val -->
+      <condition attribute="cr5ee_typ" operator="eq" value="10" /> <!--System-->
+
+      <condition attribute="cr5ee_typ" operator="eq" value="5" /> <!--Önskemål-->
+    </filter>
+
+    <!-- SÖK -->
+    <filter type="and">
+      {% if qId != '' %}
+      <condition attribute="cr5ee_arendeid" operator="like" value="%{{ qId | escape }}%" />
+      {% endif %}
+      {% if qName != '' %}
+      <condition attribute="cr5ee_name" operator="like" value="%{{ qName | escape }}%" />
+      {% endif %}
+    </filter>
+
+  </entity>
+</fetch>
+{% endfetchxml %}
+
+{% assign entities = arendenSet.results.entities %}
+
+{%- comment -%} Räkna synliga rader utifrån statusView (open/closed/all) {%- endcomment -%}
+{% assign visible_count = 0 %}
+{% for arende in entities %}
+  {% assign status_label = arende['cr5ee_status@OData.Community.Display.V1.FormattedValue'] %}
+  {% if status_label == nil or status_label == '' %}
+    {% if arende.cr5ee_status and arende.cr5ee_status.Label %}
+      {% assign status_label = arende.cr5ee_status.Label %}
+    {% endif %}
+  {% endif %}
+  {% assign is_done = false %}
+  {% if status_label == 'Slutförd' or status_label == 'Makulerad' %}
+    {% assign is_done = true %}
+  {% endif %}
+  {% if statusView == 'open' and is_done %}
+    {% continue %}
+  {% endif %}
+  {% if statusView == 'closed' and is_done == false %}
+    {% continue %}
+  {% endif %}
+  {% assign visible_count = visible_count | plus: 1 %}
+{% endfor %}
+
+{%- comment -%} Pagination:visa max 10 initially {%- endcomment -%}
+{% assign pageSize = 10 %}
+{% assign initialCount = visible_count | at_most: pageSize %}
+
+<div class="row sectionBlockLayout arenden-page" style="display: flex; flex-wrap: wrap; min-height: auto;">
+  <div class="container" style="display: flex; flex-wrap: wrap; width: 100%; max-width: 100%; margin: 0; padding: 0 20px;">
+
+    <!-- Main Content Layout -->
+    <div class="arenden-main-layout">
+      
+      <!-- Left Sidebar - Create Form -->
+      <div class="arenden-sidebar">
+        <!-- Create Issue Button - Opens Modal -->
+        <button type="button" class="form-popup-trigger" id="openFormModalBtn">
+          <svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 0.5v13" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M0.5 6.95996h13" stroke-width="1"></path></g></svg>
+          Skapa nytt ärende
+        </button>
+        
+        <div class="arenden-card arenden-create-card" id="createFormCard" style="display: none;">
+          <div class="arenden-card-header">
+              <h2>Skapa ärende</h2>
+          </div>
+          <div class="form-selector-container">
+            <!-- Form Selector Buttons -->
+            <div class="form-selector-buttons">
+              <button type="button" class="form-selector-btn {% if selectedForm == 'fast2' %}active{% endif %}" data-form="fast2">
+                Fast2
+              </button>
+              <button type="button" class="form-selector-btn {% if selectedForm == 'kommunal' %}active{% endif %}" data-form="kommunal">
+                Kommunal Felanmälan
+              </button>
+              <button type="button" class="form-selector-btn {% if selectedForm == 'losenord' %}active{% endif %}" data-form="losenord">
+                Glömt lösenord
+              </button>
+            </div>
+            
+            <!-- Success Message -->
+            {% if showSuccess == '1' %}
+            <div class="success-message" id="successMessage">
+              <div class="success-content">
+                <svg class="ip-icon success-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M0.5 8.55005 3.23 12.06c0.09212 0.1197 0.21016 0.217 0.34525 0.2846 0.13509 0.0675 0.28373 0.1036 0.43475 0.1054 0.14859 0.0018 0.2957 -0.0297 0.43063 -0.0919 0.13492 -0.0623 0.25427 -0.1539 0.34937 -0.2681L13.5 1.55005" stroke-width="1"></path></g></svg>
+                <div class="success-text">
+                  <strong>Tack!</strong>
+                  <span>Ditt ärende har skickats och kommer att behandlas inom kort.</span>
+                </div>
+                <button type="button" class="success-close" onclick="dismissSuccessMessage()"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m13.5 0.5 -13 13" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m0.5 0.5 13 13" stroke-width="1"></path></g></svg></button>
+              </div>
+              {%- comment -%}
+              Status för bilageuppladdningen som sker automatiskt här (se JS).
+              Klass, inte id: hela .form-selector-container klonas in i popupen
+              när den öppnas, så elementet finns i två exemplar - JS skriver
+              till båda så meddelandet syns oavsett vilket som visas.
+              {%- endcomment -%}
+              <div class="create-attach-status"></div>
+            </div>
+            {% endif %}
+            
+            <!-- Kommunal Sub-Form Toggle -->
+            {% if selectedForm == 'kommunal' %}
+            <div class="kommunal-sub-toggle" id="kommunalSubToggle">
+              <div class="sub-toggle-buttons">
+                <button type="button" class="sub-toggle-btn {% if kommunalForm == 'kommunal' %}active{% endif %}" data-kommunal-form="kommunal">
+                  Nytt inlogg
+                </button>
+                <button type="button" class="sub-toggle-btn {% if kommunalForm == 'kommunalLosen' %}active{% endif %}" data-kommunal-form="kommunalLosen">
+                  Befintligt inlogg
+                </button>
+              </div>
+            </div>
+            {% endif %}
+
+            <!-- Form Display -->
+            <div class="entityform-container" id="active-form-container">
+              {% if selectedForm == 'fast2' %}
+                {% entityform name:'Form' %}
+              {% elseif selectedForm == 'losenord' %}
+                {% entityform name:'Lösenord' %}
+              {% elseif selectedForm == 'kommunal' and kommunalForm == 'kommunal' %}
+                {% entityform name:'Kommunal' %}
+              {% elseif selectedForm == 'kommunal' and kommunalForm == 'kommunalLosen' %}
+                {% entityform name:'KommunalLosen' %}
+              {% else %}
+                {% entityform name:'Kommunal' %}
+              {% endif %}
+
+              {%- comment -%}
+              Utanför entityformens egen <form>, så den stör inte formulärets
+              postback/validering. Filen skickas inte med postbacken - JS
+              mellanlagrar den lokalt (IndexedDB) och laddar upp den som en
+              annotation (samma mönster som kommentarernas "Bifoga fil") så
+              fort vi landar tillbaka med ?success=1.
+              {%- endcomment -%}
+              <div class="create-arende-attach" id="createArendeAttach">
+                <label class="create-arende-attach-label" for="createArendeFileInput"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m12.8581 6.7867 -5.87959 5.929c-0.22813 0.2324 -0.50031 0.4171 -0.80062 0.5431 -0.30031 0.1261 -0.62274 0.191 -0.94843 0.191 -0.3257 0 -0.64812 -0.0649 -0.94844 -0.191 -0.30031 -0.126 -0.57249 -0.3107 -0.80061 -0.5431l-1.75894 -1.7886c-0.46046 -0.4677 -0.71854 -1.09766 -0.71854 -1.75398 0 -0.65631 0.25808 -1.28631 0.71854 -1.75399L7.98644 1.1344c0.18372 -0.185239 0.40231 -0.332266 0.64314 -0.432602 0.24084 -0.100335 0.49915 -0.151993 0.76005 -0.151993s0.51922 0.051658 0.76007 0.151993c0.2408 0.100336 0.4594 0.247363 0.6431 0.432602l0.7016 0.7016c0.1853 0.18372 0.3323 0.40231 0.4326 0.64314 0.1004 0.24083 0.152 0.49915 0.152 0.76005s-0.0516 0.51922 -0.152 0.76005c-0.1003 0.24084 -0.2473 0.45942 -0.4326 0.64314L5.94094 10.2156c-0.09187 0.0927 -0.20116 0.1662 -0.32158 0.2163 -0.12041 0.0502 -0.24957 0.076 -0.38002 0.076 -0.13045 0 -0.25961 -0.0258 -0.38003 -0.076 -0.12041 -0.0501 -0.22971 -0.1236 -0.32157 -0.2163l-0.34586 -0.3557c-0.09262 -0.09187 -0.16613 -0.20116 -0.2163 -0.32158 -0.05016 -0.12041 -0.07599 -0.24957 -0.07599 -0.38002 0 -0.13045 0.02583 -0.25961 0.07599 -0.38003 0.05017 -0.12041 0.12368 -0.22971 0.2163 -0.32157l3.72539 -3.69574" stroke-width="1"></path></g></svg> Bifoga fil (valfritt)</label>
+                <input type="file" id="createArendeFileInput" multiple />
+                <div class="create-arende-attach-hint" id="createArendeAttachHint"></div>
+              </div>
+            </div>
+
+            {% if justCreatedArende %}
+            <div id="justCreatedArendeMarker" data-arendenid="{{ justCreatedArende.cr5ee_arendenid | escape }}" style="display:none;"></div>
+            {% endif %}
+
+          </div>
+        </div>
+
+        <!-- Quick Filters in Sidebar -->
+        <div class="arenden-card arenden-filters-card">
+          <div class="arenden-card-header">
+              <h2><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M13.5 0.5H0.5l5 7v6l3 -2v-4l5 -7Z" stroke-width="1"></path></g></svg> Snabbfilter</h2>
+          </div>
+          <div class="filters-card-body">
+            <a href="?status=open" class="quick-filter-link {% if statusView == 'open' %}active{% endif %}">
+              <span class="filter-icon"></span>
+              <span>Öppna ärenden</span>
+            </a>
+            <a href="?status=closed" class="quick-filter-link {% if statusView == 'closed' %}active{% endif %}">
+              <span class="filter-icon"></span>
+              <span>Avslutade ärenden</span>
+            </a>
+            <a href="?status=all" class="quick-filter-link {% if statusView == 'all' %}active{% endif %}">
+              <span class="filter-icon"></span>
+              <span>Alla ärenden</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Content Area -->
+      <div class="arenden-content">
+        <!-- Jira-like Toolbar -->
+        <div class="arenden-toolbar">
+          <div class="jira-toolbar-top">
+            <div class="toolbar-left">
+              <h2>{{ toolbar_title }}</h2>
+              <span class="record-count">{{ visible_count }} poster</span>
+            </div>
+          </div>
+          
+          <!-- Unified Search + Sort Bar -->
+          <div class="search-sort-bar" role="search" aria-label="Sök och sortera ärenden">
+            <div class="search-sort-row">
+              <div class="search-fields">
+                <div class="search-input-group">
+                  <label for="qId" class="sr-only">ÄrendeID</label>
+                  <span class="search-icon" aria-hidden="true"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M6 11.5c3.03757 0 5.5 -2.46243 5.5 -5.5S9.03757 0.5 6 0.5 0.5 2.96243 0.5 6s2.46243 5.5 5.5 5.5Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M13.5 13.5 10 10" stroke-width="1"></path></g></svg></span>
+                  <input type="text" id="qId" value="{{ qId | escape }}" class="form-control search-input" placeholder="Sök ärende-ID..." aria-describedby="qIdHelp" />
+                </div>
+                <div class="search-input-group">
+                  <label for="qName" class="sr-only">Ärenderubrik</label>
+                  <input type="text" id="qName" value="{{ qName | escape }}" class="form-control search-input" placeholder="Sök rubrik..." />
+                </div>
+              </div>
+              
+              <div class="sort-controls">
+                <div class="sort-select-wrapper">
+                  <label for="sortBySelect" class="sr-only">Sortera efter</label>
+                  <select id="sortBySelect" class="form-control sort-select" aria-label="Sortera efter">
+                    <option value="createdon" {% if order_attr == 'createdon' %}selected{% endif %}>Skapad</option>
+                    <option value="cr5ee_arendeid" {% if order_attr == 'cr5ee_arendeid' %}selected{% endif %}>ID</option>
+                    <option value="cr5ee_name" {% if order_attr == 'cr5ee_name' %}selected{% endif %}>Namn</option>
+                    <option value="cr5ee_prioritet" {% if order_attr == 'cr5ee_prioritet' %}selected{% endif %}>Prioritet</option>
+                  </select>
+                </div>
+
+                <div class="sort-direction" role="group" aria-label="Sorteringsriktning">
+                  <button type="button" class="dir-btn {% if order_desc == 'false' %}active{% endif %}" data-dir="asc" aria-label="Stigande" title="Stigande">
+                    <span style="display:inline-block;transform:rotate(180deg)"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m4 6.5 3 3 3 -3" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 0.5v9" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M3.5 13.5h7" stroke-width="1"></path></g></svg></span>
+                  </button>
+                  <button type="button" class="dir-btn {% if order_desc == 'true' %}active{% endif %}" data-dir="desc" aria-label="Fallande" title="Fallande">
+                    <svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m4 6.5 3 3 3 -3" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 0.5v9" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M3.5 13.5h7" stroke-width="1"></path></g></svg>
+                  </button>
+                </div>
+              </div>
+
+              <div class="search-actions">
+                <button type="button" class="btn btn-primary btn-search" id="btnSearch">
+                  <span class="btn-text">Sök</span>
+                </button>
+                <a href="/Ärende" class="btn btn-clear" title="Rensa"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m13.5 0.5 -13 13" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m0.5 0.5 13 13" stroke-width="1"></path></g></svg></a>
+              </div>
+            </div>
+            
+            <!-- Hidden select fields for form submission -->
+            <select id="sortBy" class="form-control" style="display:none;">
+              <option value="createdon" {% if order_attr == 'createdon' %}selected{% endif %}>Skapad</option>
+              <option value="cr5ee_arendeid" {% if order_attr == 'cr5ee_arendeid' %}selected{% endif %}>ÄrendeID</option>
+              <option value="cr5ee_name" {% if order_attr == 'cr5ee_name' %}selected{% endif %}>Namn</option>
+              <option value="cr5ee_prioritet" {% if order_attr == 'cr5ee_prioritet' %}selected{% endif %}>Prioritet</option>
+            </select>
+            <select id="sortDir" class="form-control" style="display:none;">
+              <option value="asc" {% if order_desc == 'false' %}selected{% endif %}>Asc</option>
+              <option value="desc" {% if order_desc == 'true' %}selected{% endif %}>Desc</option>
+            </select>
+          </div>
+        </div>
+      <!-- Lista -->
+      <div class="arenden-table-wrapper">
+        <table class="arenden-table">
+          <thead>
+            <tr>
+              <th scope="col">ID</th>
+              <th scope="col">Ärenderubrik</th>
+              <th scope="col">Skapad</th>
+              <th scope="col">Prioritet</th>
+              <th scope="col">Status</th>
+              <th scope="col">Beställare</th>
+              <th scope="col">Typ</th>
+              <th scope="col">Klassificering</th>
+              <th scope="col">Applikation</th>
+            </tr>
+          </thead>
+          <tbody>
+{% if entities and entities.size > 0 %}
+{% assign displayCount = 0 %}
+  {% for arende in entities %}
+
+    {%- assign prioritet_label = arende['cr5ee_prioritet@OData.Community.Display.V1.FormattedValue'] -%}
+    {%- if (prioritet_label == nil or prioritet_label == '') and arende.cr5ee_prioritet and arende.cr5ee_prioritet.Label -%}
+      {%- assign prioritet_label = arende.cr5ee_prioritet.Label -%}
+    {%- endif -%}
+
+    {%- assign status_label = arende['cr5ee_status@OData.Community.Display.V1.FormattedValue'] -%}
+    {%- if (status_label == nil or status_label == '') and arende.cr5ee_status and arende.cr5ee_status.Label -%}
+      {%- assign status_label = arende.cr5ee_status.Label -%}
+    {%- endif -%}
+
+    {%- assign is_done = false -%}
+    {%- if status_label == 'Slutförd' or status_label == 'Makulerad' -%}
+      {%- assign is_done = true -%}
+    {%- endif -%}
+    {%- if statusView == 'open' and is_done -%}
+      {%- continue -%}
+    {%- endif -%}
+    {%- if statusView == 'closed' and is_done == false -%}
+      {%- continue -%}
+    {%- endif -%}
+
+    {%- assign displayCount = displayCount | plus: 1 -%}
+
+    
+
+    {%- comment -%}
+    Bilagor kopplade till ärendet - bifogas via filväljaren i skapa-formuläret
+    (se #createArendeFileInput ovan) och lagras som annotation (Note) kopplad
+    till ärendet. Renderas i en <template>, osynlig tills popupen öppnas (se JS).
+    {%- endcomment -%}
+    {% fetchxml rowAttachmentSet %}
+    <fetch version="1.0" mapping="logical" distinct="false">
+      <entity name="annotation">
+        <attribute name="filename" />
+        <attribute name="mimetype" />
+        <attribute name="documentbody" />
+        <order attribute="createdon" descending="false" />
+        <filter type="and">
+          <condition attribute="objectid" operator="eq" value="{{ arende.cr5ee_arendenid }}" />
+          <condition attribute="filename" operator="not-null" />
+        </filter>
+      </entity>
+    </fetch>
+    {% endfetchxml %}
+    {% assign rowAttachments = rowAttachmentSet.results.entities %}
+
+    <tr data-id="{{ arende.cr5ee_arendenid | escape }}">
+      <!-- ID (klickbar) -->
+      <td style="white-space: nowrap;">
+        {% if arende.cr5ee_arendenid and arende.cr5ee_arendeid %}
+          <button type="button" class="arenden-popup-trigger" 
+                  data-id="{{ arende.cr5ee_arendenid | escape }}"
+                  data-arendeid="{{ arende.cr5ee_arendeid | escape }}"
+                  data-name="{{ arende.cr5ee_name | escape }}"
+                  data-created="{{ arende.createdon | date: 'yyyy-MM-dd' | escape }}"
+                  data-priority="{{ prioritet_label | escape }}"
+                  data-status="{{ status_label | escape }}"
+                  data-bestallare="{{ best_label | escape }}"
+                  data-typ="{{ typ_label | escape }}"
+                  data-klassificering="{{ klass_label | escape }}"
+                  data-applikation="{{ applikation_label | escape }}">
+            {{ arende.cr5ee_arendeid | escape }}
+          </button>
+        {% elsif arende.cr5ee_arendeid %}
+          {{ arende.cr5ee_arendeid | escape }}
+        {% else %}
+          -
+        {% endif %}
+        {% if rowAttachments and rowAttachments.size > 0 %}
+        <template class="row-attachments-tpl">
+          {% for att in rowAttachments %}
+            {% if att.mimetype contains 'image' %}
+            <div class="case-attachment">
+              <img class="case-attachment-thumb" src="data:{{ att.mimetype }};base64,{{ att.documentbody }}" alt="{{ att.filename | escape }}" data-lightbox="true" />
+              <div class="case-attachment-name" title="{{ att.filename | escape }}">{{ att.filename | escape }}</div>
+            </div>
+            {% else %}
+            {%- assign att_ext = '' -%}
+            {%- if att.filename contains '.' -%}{%- assign att_ext = att.filename | split: '.' | last | upcase -%}{%- endif -%}
+            <a class="case-attachment" href="data:{{ att.mimetype }};base64,{{ att.documentbody }}" download="{{ att.filename | escape }}" title="Ladda ner {{ att.filename | escape }}">
+              <div class="case-attachment-icon"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M12.5 12.5c0 0.2652 -0.1054 0.5196 -0.2929 0.7071s-0.4419 0.2929 -0.7071 0.2929h-9c-0.26522 0 -0.51957 -0.1054 -0.70711 -0.2929C1.60536 13.0196 1.5 12.7652 1.5 12.5v-11c0 -0.26522 0.10536 -0.51957 0.29289 -0.707107C1.98043 0.605357 2.23478 0.5 2.5 0.5H9L12.5 4v8.5Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m9 8 -2 2 -2 -2" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m7 10 0 -5.5" stroke-width="1"></path></g></svg>{% if att_ext != '' and att_ext.size <= 5 %}<span class="case-attachment-ext">{{ att_ext | escape }}</span>{% endif %}</div>
+              <div class="case-attachment-name" title="{{ att.filename | escape }}">{{ att.filename | escape }}</div>
+            </a>
+            {% endif %}
+          {% endfor %}
+        </template>
+        {% endif %}
+      </td>
+
+      <!-- Namn -->
+      <td>{{ arende.cr5ee_name | escape }}</td>
+
+      <!-- Skapad -->
+      <td>
+        {% if arende.createdon %}
+          {{ arende.createdon | date: "yyyy-MM-dd" }}
+        {% else %}
+          -
+        {% endif %}
+      </td>
+
+      <!-- Prioritet (visa etikett, sorteras redan på Value) -->
+{%- assign prioritet_label = arende['cr5ee_prioritet@OData.Community.Display.V1.FormattedValue'] -%}
+{%- if (prioritet_label == nil or prioritet_label == '') and arende.cr5ee_prioritet and arende.cr5ee_prioritet.Label -%}
+  {%- assign prioritet_label = arende.cr5ee_prioritet.Label -%}
+{%- endif -%}
+
+{%- assign badge_class = '' -%}
+
+{%- case prioritet_label -%}
+  {%- when 'Kritisk' -%}{%- assign badge_class = 'label label-danger'  -%}
+  {%- when 'Hög'     -%}{%- assign badge_class = 'label label-warning' -%}
+  {%- when 'Normal'  -%}{%- assign badge_class = 'label label-primary' -%}
+  {%- when 'Låg'     -%}{%- assign badge_class = 'label label-success' -%}
+  {%- else -%}{%- assign badge_class = 'label label-default' -%}
+{%- endcase -%}
+
+<td>
+  {% if prioritet_label and prioritet_label != '' %}
+    <span class="priority-badge {{ badge_class | replace: 'label label-danger', 'critical' | replace: 'label label-warning', 'high' | replace: 'label label-primary', 'normal' | replace: 'label label-success', 'low' | replace: 'label label-default', 'default' }}">{{ prioritet_label | escape }}</span>
+  {% elsif arende.cr5ee_prioritet and arende.cr5ee_prioritet.Value != nil %}
+    {{ arende.cr5ee_prioritet.Value }}
+  {% else %}
+    -
+  {% endif %}
+</td>
+
+      <!-- Status -->
+      <td class="status-text">
+        {% if status_label and status_label != '' %}
+          {{ status_label | escape }}
+        {% elsif arende.cr5ee_status and arende.cr5ee_status.Value != nil %}
+          {{ arende.cr5ee_status.Value }}
+        {% else %}
+          -
+        {% endif %}
+      </td>
+
+      {%- assign best_label = arende['cr5ee_bestallare@OData.Community.Display.V1.FormattedValue'] -%}
+
+{%- comment -%}
+För lookup-fält i Power Pages fungerar ofta FormattedValue-nyckeln ovan.
+Om fältet är av "customer"/lookup-typ och portalen exponerar _value-varianten
+(ibland förekommer detta), hantera även den:
+{%- endcomment -%}
+{%- if (best_label == nil or best_label == '') and arende['_cr5ee_bestallare_value@OData.Community.Display.V1.FormattedValue'] -%}
+  {%- assign best_label = arende['_cr5ee_bestallare_value@OData.Community.Display.V1.FormattedValue'] -%}
+{%- endif -%}
+
+{%- comment -%}
+Fallback om Liquid-objekt finns med .Name (vissa portalversioner exponerar lookup-objekt som {Id,Name,LogicalName})
+{%- endcomment -%}
+{%- if (best_label == nil or best_label == '') and arende.cr5ee_bestallare and arende.cr5ee_bestallare.Name -%}
+  {%- assign best_label = arende.cr5ee_bestallare.Name -%}
+{%- endif -%}
+
+<td>
+  {% if best_label and best_label != '' %}
+    {{ best_label | escape }}
+  {% elsif arende.cr5ee_bestallare %}
+    {{ arende.cr5ee_bestallare | escape }}
+  {% else %}
+    -
+  {% endif %}
+</td>
+<!--Typ-->
+{%- assign typ_label = arende['cr5ee_typ@OData.Community.Display.V1.FormattedValue'] -%}
+
+{%- if (typ_label == nil or typ_label == '') and arende.cr5ee_typ and arende.cr5ee_typ.Label -%}
+  {%- assign typ_label = arende.cr5ee_typ.Label -%}
+{%- endif -%}
+
+{%- if (typ_label == nil or typ_label == '') and arende.cr5ee_typ and arende.cr5ee_typ.Value != nil -%}
+  {%- assign typ_label = arende.cr5ee_typ.Value -%}
+{%- endif -%}
+
+<td>{{ typ_label | escape }}</td>
+
+<!--Klassificering-->
+{%- assign klass_label = arende['cr5ee_klassificering@OData.Community.Display.V1.FormattedValue'] -%}
+{%- if (klass_label == nil or klass_label == '') and arende.cr5ee_klassificering and arende.cr5ee_klassificering.Label -%}
+  {%- assign klass_label = arende.cr5ee_klassificering.Label -%}
+{%- endif -%}
+{%- if (klass_label == nil or klass_label == '') and arende.cr5ee_klassificering and arende.cr5ee_klassificering.Value != nil -%}
+  {%- case arende.cr5ee_klassificering.Value -%}
+    {%- when 10 -%}{%- assign klass_label = 'Incident' -%}
+    {%- when 20 -%}{%- assign klass_label = 'Problem' -%}
+    {%- when 30 -%}{%- assign klass_label = 'Förfrågan' -%}
+    {%- else -%}{%- assign klass_label = arende.cr5ee_klassificering.Value -%}
+  {%- endcase -%}
+{%- endif -%}
+
+{%- assign klass_badge_class = 'default' -%}
+{%- case klass_label -%}
+  {%- when 'Incident'  -%}{%- assign klass_badge_class = 'critical' -%}
+  {%- when 'Problem'  -%}{%- assign klass_badge_class = 'high' -%}
+  {%- when 'Förfrågan' -%}{%- assign klass_badge_class = 'normal' -%}
+{%- endcase -%}
+
+<td>
+  {% if klass_label and klass_label != '' %}
+    <span class="priority-badge {{ klass_badge_class }}">{{ klass_label | escape }}</span>
+  {% else %}
+    -
+  {% endif %}
+</td>
+
+<!--Applikation-->
+{%- assign applikation_label = arende['cr5ee_applikation@OData.Community.Display.V1.FormattedValue'] -%}
+{%- if (applikation_label == nil or applikation_label == '') and arende.cr5ee_applikation and arende.cr5ee_applikation.Label -%}
+  {%- assign applikation_label = arende.cr5ee_applikation.Label -%}
+{%- endif -%}
+{%- if (applikation_label == nil or applikation_label == '') and arende.cr5ee_applikation and arende.cr5ee_applikation.Value != nil -%}
+  {%- case arende.cr5ee_applikation.Value -%}
+    {%- when 10 -%}{%- assign applikation_label = 'Fast2 Desktop' -%}
+    {%- when 20 -%}{%- assign applikation_label = 'Fast2 Mobilen' -%}
+    {%- when 30 -%}{%- assign applikation_label = 'Fast2 Portalen' -%}
+    {%- when 40 -%}{%- assign applikation_label = 'Admin' -%}
+    {%- else -%}{%- assign applikation_label = arende.cr5ee_applikation.Value -%}
+  {%- endcase -%}
+{%- endif -%}
+
+{%- assign applikation_badge_class = 'default' -%}
+{%- case applikation_label -%}
+  {%- when 'Fast2 Desktop'  -%}{%- assign applikation_badge_class = 'critical' -%}
+  {%- when 'Fast2 Mobilen'  -%}{%- assign applikation_badge_class = 'high' -%}
+  {%- when 'Fast2 Portalen' -%}{%- assign applikation_badge_class = 'normal' -%}
+  {%- when 'Admin'          -%}{%- assign applikation_badge_class = 'default' -%}
+{%- endcase -%}
+
+<td>
+  {% if applikation_label and applikation_label != '' %}
+    <span class="priority-badge {{ applikation_badge_class }}">{{ applikation_label | escape }}</span>
+  {% else %}
+    -
+  {% endif %}
+</td>
+
+<!--Tabell slut-->
+    </tr>
+  {% endfor %}
+{% else %}
+    <tr>
+      <td colspan="10">
+        <div class="empty-state">
+          <div class="empty-state-icon"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M8.5 0.5h-3c-0.55228 0 -1 0.447715 -1 1V2c0 0.55228 0.44772 1 1 1h3c0.55228 0 1 -0.44772 1 -1v-0.5c0 -0.552285 -0.44772 -1 -1 -1Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M9.75 1.5h1.5c0.2652 0 0.5196 0.10536 0.7071 0.29289 0.1875 0.18754 0.2929 0.44189 0.2929 0.70711v10c0 0.2652 -0.1054 0.5196 -0.2929 0.7071s-0.4419 0.2929 -0.7071 0.2929h-8.5c-0.26522 0 -0.51957 -0.1054 -0.70711 -0.2929 -0.18753 -0.1875 -0.29289 -0.4419 -0.29289 -0.7071v-10c0 -0.26522 0.10536 -0.51957 0.29289 -0.70711C2.23043 1.60536 2.48478 1.5 2.75 1.5h1.5" stroke-width="1"></path></g></svg></div>
+          <div class="empty-state-title">Inga ärenden hittades</div>
+          <div class="empty-state-text">
+            {% if qId != '' or qName != '' %}
+              Prova att ändra din sökning eller <a href="#" onclick="document.getElementById('qId').value=''; document.getElementById('qName').value=''; document.getElementById('btnSearch').click(); return false;">rensa sökningen</a>
+            {% else %}
+              Det finns inga aktuella ärenden att visa
+            {% endif %}
+          </div>
+        </div>
+      </td>
+    </tr>
+{% endif %}
+          </tbody>
+        </table>
+      </div>
+        
+        {%- if visible_count > pageSize -%}
+        <div class="show-more-container">
+          <button type="button" class="btn btn-show-more" id="btnShowMore">
+            Visa mer ({{ visible_count | minus: pageSize }} till)
+          </button>
+        </div>
+        {%- endif -%}
+      </div>
+    </div>
+
+    <!-- END Main Layout -->
+  </div>
+</div>
+
+<!-- Ärende Detalj Popup -->
+<div class="arenden-popup-overlay" id="arendenPopupOverlay">
+  <div class="arenden-popup" id="arendenPopup">
+    <div class="arenden-popup-header">
+      <div class="arenden-popup-header-content">
+        <h2 class="arenden-popup-title" id="popupTitle">Ärendedetalj</h2>
+        <div class="arenden-popup-subtitle">
+          <span class="arenden-popup-id" id="popupId">-</span>
+          <span id="popupStatus">-</span>
+        </div>
+      </div>
+      <button type="button" class="arenden-popup-close" id="popupCloseBtn" aria-label="Stäng"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m13.5 0.5 -13 13" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m0.5 0.5 13 13" stroke-width="1"></path></g></svg></button>
+    </div>
+    <div class="arenden-popup-body">
+      <div class="arenden-popup-section">
+        <div class="arenden-popup-section-title">Grundinformation</div>
+        <div class="arenden-popup-grid">
+          <div class="arenden-popup-field">
+            <div class="arenden-popup-label">Ärende-ID</div>
+            <div class="arenden-popup-value" id="popupArendeId">-</div>
+          </div>
+          <div class="arenden-popup-field">
+            <div class="arenden-popup-label">Rubrik</div>
+            <div class="arenden-popup-value" id="popupName">-</div>
+          </div>
+          <div class="arenden-popup-field">
+            <div class="arenden-popup-label">Skapad</div>
+            <div class="arenden-popup-value" id="popupCreated">-</div>
+          </div>
+          <div class="arenden-popup-field">
+            <div class="arenden-popup-label">Prioritet</div>
+            <div class="arenden-popup-value" id="popupPriority">-</div>
+          </div>
+        </div>
+      </div>
+      <div class="arenden-popup-section">
+        <div class="arenden-popup-section-title">Klassificering</div>
+        <div class="arenden-popup-grid">
+          <div class="arenden-popup-field">
+            <div class="arenden-popup-label">Typ</div>
+            <div class="arenden-popup-value" id="popupTyp">-</div>
+          </div>
+          <div class="arenden-popup-field">
+            <div class="arenden-popup-label">Klassificering</div>
+            <div class="arenden-popup-value" id="popupKlassificering">-</div>
+          </div>
+          <div class="arenden-popup-field">
+            <div class="arenden-popup-label">Applikation</div>
+            <div class="arenden-popup-value" id="popupApplikation">-</div>
+          </div>
+          <div class="arenden-popup-field">
+            <div class="arenden-popup-label">Beställare</div>
+            <div class="arenden-popup-value" id="popupBestallare">-</div>
+          </div>
+        </div>
+      </div>
+      <div class="arenden-popup-section" id="popupAttachmentsSection" style="display:none;">
+        <div class="arenden-popup-section-title"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m12.8581 6.7867 -5.87959 5.929c-0.22813 0.2324 -0.50031 0.4171 -0.80062 0.5431 -0.30031 0.1261 -0.62274 0.191 -0.94843 0.191 -0.3257 0 -0.64812 -0.0649 -0.94844 -0.191 -0.30031 -0.126 -0.57249 -0.3107 -0.80061 -0.5431l-1.75894 -1.7886c-0.46046 -0.4677 -0.71854 -1.09766 -0.71854 -1.75398 0 -0.65631 0.25808 -1.28631 0.71854 -1.75399L7.98644 1.1344c0.18372 -0.185239 0.40231 -0.332266 0.64314 -0.432602 0.24084 -0.100335 0.49915 -0.151993 0.76005 -0.151993s0.51922 0.051658 0.76007 0.151993c0.2408 0.100336 0.4594 0.247363 0.6431 0.432602l0.7016 0.7016c0.1853 0.18372 0.3323 0.40231 0.4326 0.64314 0.1004 0.24083 0.152 0.49915 0.152 0.76005s-0.0516 0.51922 -0.152 0.76005c-0.1003 0.24084 -0.2473 0.45942 -0.4326 0.64314L5.94094 10.2156c-0.09187 0.0927 -0.20116 0.1662 -0.32158 0.2163 -0.12041 0.0502 -0.24957 0.076 -0.38002 0.076 -0.13045 0 -0.25961 -0.0258 -0.38003 -0.076 -0.12041 -0.0501 -0.22971 -0.1236 -0.32157 -0.2163l-0.34586 -0.3557c-0.09262 -0.09187 -0.16613 -0.20116 -0.2163 -0.32158 -0.05016 -0.12041 -0.07599 -0.24957 -0.07599 -0.38002 0 -0.13045 0.02583 -0.25961 0.07599 -0.38003 0.05017 -0.12041 0.12368 -0.22971 0.2163 -0.32157l3.72539 -3.69574" stroke-width="1"></path></g></svg> Bilagor</div>
+        <div class="case-attachments" id="popupAttachments"></div>
+      </div>
+    </div>
+    <div class="arenden-popup-footer">
+      <button type="button" class="arenden-popup-btn arenden-popup-btn-secondary" id="popupCloseFooterBtn">Stäng</button>
+      <a href="#" class="arenden-popup-btn arenden-popup-btn-primary" id="popupOpenFullBtn" target="_blank">Öppna fullständig vy</a>
+    </div>
+  </div>
+</div>
+
+<!-- Form Popup -->
+<div class="form-popup-overlay" id="formPopupOverlay">
+  <div class="form-popup" id="formPopup">
+    <div class="form-popup-header">
+      <h2 class="form-popup-title" id="formPopupTitle">Skapa ärende</h2>
+      <button type="button" class="form-popup-close" id="formPopupCloseBtn" aria-label="Stäng"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m13.5 0.5 -13 13" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="m0.5 0.5 13 13" stroke-width="1"></path></g></svg></button>
+    </div>
+    <div class="form-popup-body" id="formPopupBody">
+      <!-- Form content will be loaded here dynamically -->
+    </div>
+  </div>
+</div>
+
+{%- comment -%}
+Bildförstoring för ärendebilagor. Ett klick på en <a href="data:..."
+target="_blank"> öppnas inte i moderna webbläsare (skyddar mot nätfiske) -
+därför visas bilden istället i en overlay här på sidan, utan navigering.
+{%- endcomment -%}
+<div class="image-lightbox-overlay" id="imageLightbox">
+  <img id="imageLightboxImg" src="" alt="" />
+</div>
+
+{% include 'Portal Web API Wrapper' %}
