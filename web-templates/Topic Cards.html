@@ -1,0 +1,146 @@
+{%manifest%}
+{
+  "type":"functional",
+  "displayName": "Topics",
+  "tables": ["faq_topic"],
+  "params":[
+      {
+         "id":"num_cards",
+         "displayName":"How many cards should be displayed?",
+         "description":"The max number of topics cards that the user will see"
+      }
+  ]
+}
+{%endmanifest%}
+
+<!-- Get Application types set values -->
+{% fetchxml topics %}
+<fetch version='1.0' output-format='xml-platform' mapping='logical'>
+  <entity name='faq_topic'>
+    <attribute name='faq_topicicon' />
+    <attribute name='faq_topictitle' />
+    <attribute name='faq_topicid' />
+    <order attribute='faq_topicorder' descending='false' />
+    <filter type='and'>
+      <condition attribute='faq_parenttopic' operator='null' />
+    </filter>
+  </entity>
+</fetch>
+{% endfetchxml %}
+<script>
+  $(document).ready(function () {
+    $('#moreTopics').hide();
+    $('#showLess').hide();
+
+    $('#showMore').click(function () {
+      $('#moreTopics').show();
+      $('#showLess').show();
+      $('#showMore').hide();
+    });
+
+    $('#showLess').click(function () {
+      $('#moreTopics').hide();
+      $('#showLess').hide();
+      $('#showMore').show();
+    });
+
+    $('.show-link-container').css({
+      display: 'flex',
+      'justify-content': 'center',
+    });
+
+    $('.show-topics-link').css({
+      color: '#0E51CB',
+      'font-weight': 'bold',
+      'font-family': 'sans-serif',
+      'text-align': 'center',
+      'font-size': '20px',
+      'max-width': '600px',
+      position: 'relative',
+    });
+
+    $('.left-line').css({
+      content: '',
+      display: 'block',
+      width: '30em',
+      height: '1px',
+      background: '#000',
+      'margin-top': '12px',
+      'margin-right': '12px',
+    });
+
+    $('.right-line').css({
+      content: '',
+      display: 'block',
+      width: '30em',
+      height: '1px',
+      background: '#000',
+      'margin-top': '12px',
+      'margin-left': '12px',
+    });
+
+    $('.topicsContainer').css({
+      'justify-content': 'start',
+    });
+
+    $('.show-link-container').css({
+      'margin-bottom': '5em',
+    });
+  });
+
+  function updateTopic(appName) {
+    var queryUrl = '/topics/?q=';
+    queryUrl = queryUrl + appName.replaceAll(' ', '-');
+    window.location.href = queryUrl;
+  }
+
+  function selectTopic(topicId) {
+    if (event.keyCode == 13) {
+      window.location.href = '/topics/?q=' + topicId;
+    }
+  }
+</script>
+{% if topics.results and topics.results.entities and topics.results.entities.size > 0 %}
+  {% assign entityCode = topics.results.entities[0].objecttypecode %}
+{% endif %}
+{% assign topicsResult = topics.results.entities %}
+
+{% assign topicsCount = num_cards | integer | default: 6 %}
+
+<h2 id='topic-container-header' tabindex='0'>Topics</h2>
+<div class='topicsContainer'>
+  {% for topic in topicsResult limit: topicsCount %}
+    <a onclick="updateTopic('{{topic.faq_topicid}}')" onkeypress="selectTopic('{{topic.faq_topicid}}')" class='topic' data-component-theme='portalThemeColor7' value='{{topic.attributevalue}}' tabindex='0' aria-label='{{topic.faq_topictitle}}'>
+      <img class='topicIcon' src='home-icon.png' alt='topic icon'>
+      {% unless topic.faq_topictitle == empty %}
+        <h2 class='topicTitle'>{{ topic.faq_topictitle }}</h2>
+      {% endunless %}
+    </a>
+  {% endfor %}
+</div>
+
+{% if topics.results.entities.size > topicsCount %}
+  <div class='show-link-container'>
+    <span class='start-line'></span>
+    <div id='showMore' class='show-topics-link'>
+      {{ snippets['Show more'] }}
+      <span class='fa fa-chevron-circle-down fa-fw' aria-hidden='true'></span>
+    </div>
+    <div id='showLess' class='show-topics-link'>
+      {{ snippets['Show less'] }}
+      <span class='fa fa-chevron-circle-up fa-fw' aria-hidden='true'></span>
+    </div>
+    <span class='end-line'></span>
+  </div>
+{% endif %}
+
+<div id='moreTopics' class='topicsContainer'>
+  {% for topic in topicsResult offset: topicsCount %}
+    <a onclick="updateTopic('{{topic.faq_topicid}}')" class='topic' data-component-theme='portalThemeColor7' value='{{topic.attributevalue}}'>
+      <img class='topicIcon' src='home-icon.png' alt='topic icon'>
+      {% unless topic.faq_topictitle == empty %}
+        <h2 class='topicTitle'>{{ topic.faq_topictitle }}</h2>
+      {% endunless %}
+    </a>
+  {% endfor %}
+</div>

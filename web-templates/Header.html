@@ -1,0 +1,581 @@
+{% comment %}
+Header - KFAST Ärendehanteringssystem
+Using PowerPages liquid variables and weblinks for dynamic content
+{% endcomment %}
+
+{% assign defaultlang = settings['LanguageLocale/Code'] | default: 'sv-se' %}
+{% assign homeurl = website.adx_partialurl %}
+
+<style>
+  /* === KFAST HEADER - JIRA-LIKE STYLE === */
+  
+  .kfast-header {
+    background: #e47303a4;
+    padding: 0;
+    box-shadow: 0 2px 8px rgba(55, 55, 55, 0.15);
+    position: relative;
+    z-index: 1000;
+  }
+
+  .kfast-header .container {
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 56px;
+    margin-bottom: 12px;
+  }
+
+  /* Logo area */
+  .kfast-brand {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+  }
+
+  .kfast-brand:hover {
+    text-decoration: none;
+  }
+
+  /* Desktop: Navigation + User on same row */
+  .kfast-desktop-nav {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    margin-left: 32px;
+  }
+
+  .kfast-nav {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .kfast-nav-item {
+    position: relative;
+  }
+
+  .kfast-nav-link {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: rgba(255, 255, 255, 0.9);
+    text-decoration: none;
+    padding: 8px 14px;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  .kfast-nav-link:hover {
+    color: white;
+    background: rgba(255, 255, 255, 0.15);
+    text-decoration: none;
+  }
+
+  .kfast-nav-link.active {
+    color: white;
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  /* Jira-like Search in Header */
+  .kfast-global-search {
+    position: relative;
+    margin: 0 24px;
+    flex: 1;
+    max-width: 500px;
+  }
+
+  .kfast-search-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .kfast-search-input {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+    padding: 8px 12px 8px 36px;
+    font-size: 14px;
+    color: white;
+    transition: all 0.2s ease;
+  }
+
+  .kfast-search-input::placeholder {
+    color: rgba(255, 255, 255, 0.6);
+  }
+
+  .kfast-search-input:focus {
+    outline: none;
+    background: white;
+    color: #333;
+    border-color: #f18e35;
+  }
+
+  .kfast-search-input:focus + .kfast-search-icon {
+    color: #333;
+  }
+
+  .kfast-search-icon {
+    position: absolute;
+    left: 10px;
+    display: inline-flex;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 14px;
+    pointer-events: none;
+  }
+
+  .kfast-search-shortcut {
+    position: absolute;
+    right: 8px;
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+    padding: 2px 6px;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.7);
+    font-family: monospace;
+  }
+
+  /* Create Button - Jira style */
+  .kfast-create-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #f18e35;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 3px;
+    font-size: 14px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    margin-right: 16px;
+  }
+
+  .kfast-create-btn:hover {
+    background: #e47303d5;
+    text-decoration: none;
+    color: white;
+  }
+
+  .kfast-create-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  /* Ikoner (Streamline Core Line – Free) är inbäddade SVG med width/height 1em; här bara linjering mot texten */
+  .ip-icon {
+    vertical-align: -0.125em;
+    flex-shrink: 0;
+  }
+
+  /* User section - right side */
+  .kfast-user-section {
+    position: relative;
+    display: flex;
+    align-items: center;
+    margin-left: auto;
+  }
+
+  .kfast-user-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.15);
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .kfast-user-btn:hover {
+    background: rgba(255, 255, 255, 0.25);
+  }
+
+  .kfast-user-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: white;
+    color: #e47203;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 12px;
+  }
+
+  .kfast-user-name {
+    color: white;
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .kfast-user-caret {
+    color: white;
+    font-size: 10px;
+  }
+
+  /* Dropdown */
+  .kfast-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 8px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    min-width: 180px;
+    overflow: hidden;
+  }
+
+  .kfast-dropdown.show {
+    display: block;
+  }
+
+  .kfast-dropdown-item {
+    display: block;
+    color: #333;
+    text-decoration: none;
+    padding: 10px 16px;
+    font-size: 14px;
+    transition: all 0.15s ease;
+  }
+
+  .kfast-dropdown-item:hover {
+    background: #f5f5f5;
+    color: #e47203;
+    text-decoration: none;
+  }
+
+  .kfast-dropdown-divider {
+    height: 1px;
+    background: #eee;
+    margin: 4px 0;
+  }
+
+  /* Login button */
+  .kfast-login-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: white;
+    color: #373737;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s ease;
+  }
+
+  .kfast-login-btn:hover {
+    background: #f8f8f8;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(55, 55, 55, 0.15);
+    text-decoration: none;
+    color: #e47203;
+  }
+
+  /* Mobile toggle */
+  .kfast-toggle {
+    display: none;
+    background: rgba(255, 255, 255, 0.15);
+    border: none;
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+
+  .kfast-toggle span {
+    display: block;
+    width: 20px;
+    height: 2px;
+    background: white;
+    margin: 5px 0;
+    transition: all 0.3s ease;
+  }
+
+  /* Mobile: Full menu */
+  .kfast-mobile-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: linear-gradient(135deg, #e47303a4 0%, #f18e35 100%);
+    padding: 16px;
+    box-shadow: 0 4px 12px rgba(55, 55, 55, 0.2);
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+  }
+
+  .kfast-mobile-menu.show {
+    display: block;
+  }
+
+  .kfast-mobile-menu .kfast-nav {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .kfast-mobile-menu .kfast-nav-link {
+    padding: 12px 16px;
+    background-color: #f18d35f3;
+    border-radius: 8px;
+
+  }
+
+  .kfast-mobile-menu.kfast-brand:hover .kfast-nav-link.kfast-brand:hover {
+    padding: 13px 17px;
+    background-color: #eb9b55f3;
+
+  }
+
+  .kfast-mobile-menu .kfast-user-section {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    justify-content: center;
+  }
+
+  .kfast-mobile-menu .kfast-dropdown {
+    position: static;
+    box-shadow: none;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    margin-top: 8px;
+  }
+
+  .kfast-mobile-menu .kfast-dropdown-item {
+    color: white;
+  }
+
+  .kfast-mobile-menu .kfast-dropdown-item:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+  }
+
+  .kfast-mobile-menu .kfast-dropdown-divider {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  /* Responsive */
+  @media (max-width: 991px) {
+    .kfast-desktop-nav {
+      display: none;
+    }
+
+    .kfast-toggle {
+      display: block;
+    }
+    
+    .kfast-global-search {
+      display: none;
+    }
+    
+    .kfast-create-btn span {
+      display: none;
+    }
+    
+    .kfast-create-btn {
+      padding: 8px 12px;
+    }
+  }
+
+  /* Skip link */
+  .skip-to-content {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background: #e47303a4;
+    color: white;
+    padding: 8px 12px;
+    z-index: 1000;
+    transition: top 0.2s;
+    font-size: 13px;
+    text-decoration: none;
+  }
+
+  .skip-to-content:focus {
+    top: 0;
+  }
+</style>
+
+<div class="kfast-header" role="banner">
+  <div class="skip-to-content">
+    <a href="#mainContent">{{ resx.Skip_To_Content | default: 'Skip to main content' }}</a>
+  </div>
+
+  <div class="container">
+    <!-- Logo (from editable snippet) -->
+    <a href="/" class="kfast-brand">
+      {% editable snippets 'Mobile Header' type: 'html' %}
+    </a>
+
+    <!-- Mobile toggle -->
+    <button class="kfast-toggle" onclick="document.querySelector('.kfast-mobile-menu').classList.toggle('show')">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+
+    <!-- Desktop: Navigation + User on same row -->
+    <div class="kfast-desktop-nav">
+      <!-- Global Search -->
+      <div class="kfast-global-search">
+        <div class="kfast-search-wrapper">
+          <input type="text" class="kfast-search-input" placeholder="Sök ärenden, projekt..." id="headerSearch">
+          <span class="kfast-search-icon"><svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M6 11.5c3.03757 0 5.5 -2.46243 5.5 -5.5S9.03757 0.5 6 0.5 0.5 2.96243 0.5 6s2.46243 5.5 5.5 5.5Z" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M13.5 13.5 10 10" stroke-width="1"></path></g></svg></span>
+        </div>
+      </div>
+
+      <!-- Create Button -->
+      <a href="/Fast2/Ärende?form=fast2" class="kfast-create-btn">
+        <svg class="ip-icon" width="1em" height="1em" viewBox="0 0 14 14" fill="none" aria-hidden="true" focusable="false"><g><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M7 0.5v13" stroke-width="1"></path><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M0.5 6.95996h13" stroke-width="1"></path></g></svg>
+        Skapa
+      </a>
+
+      <ul class="kfast-nav">
+        {% assign primary_nav = weblinks.Default %}
+        {% if primary_nav %}
+          {% for link in primary_nav.weblinks %}
+            <li class="kfast-nav-item">
+              <a href="{{ link.url | escape }}" class="kfast-nav-link" aria-label="{{ link.name | escape }}">
+                {{ link.name | escape }}
+              </a>
+            </li>
+          {% endfor %}
+        {% endif %}
+      </ul>
+
+      <!-- User Section (right side) -->
+      <div class="kfast-user-section">
+        {% if user %}
+          {% assign username = user.fullname | escape %}
+          {% assign firstname = username | split: ' ' | first %}
+          <button class="kfast-user-btn" onclick="this.nextElementSibling.classList.toggle('show')">
+            <div class="kfast-user-avatar">{{ firstname.first | upcase }}</div>
+            <span class="kfast-user-name">{{ firstname }}</span>
+            <span class="kfast-user-caret">▼</span>
+          </button>
+          <div class="kfast-dropdown">
+            {% assign profile_nav = weblinks['Profile Navigation'] %}
+            {% if profile_nav %}
+              {% for link in profile_nav.weblinks %}
+                <a href="{{ link.url | escape }}" class="kfast-dropdown-item">{{ link.name | escape }}</a>
+              {% endfor %}
+              <div class="kfast-dropdown-divider"></div>
+            {% endif %}
+            <a href="{{ website.sign_out_url_substitution }}" class="kfast-dropdown-item">Logga ut</a>
+          </div>
+        {% else %}
+          <a href="{{ website.sign_in_url_substitution }}" class="kfast-login-btn">
+            Logga in
+          </a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile menu (hidden on desktop) -->
+  <div class="kfast-mobile-menu">
+    <ul class="kfast-nav">
+      {% assign primary_nav = weblinks.Default %}
+      {% if primary_nav %}
+        {% for link in primary_nav.weblinks %}
+          <li class="kfast-nav-item">
+            <a href="{{ link.url | escape }}" class="kfast-nav-link" aria-label="{{ link.name | escape }}">
+              {{ link.name | escape }}
+            </a>
+          </li>
+        {% endfor %}
+      {% endif %}
+    </ul>
+
+    <!-- User Section -->
+    <div class="kfast-user-section">
+      {% if user %}
+        {% assign username = user.fullname | escape %}
+        {% assign firstname = username | split: ' ' | first %}
+        <button class="kfast-user-btn" onclick="this.nextElementSibling.classList.toggle('show')">
+          <div class="kfast-user-avatar">{{ firstname.first | upcase }}</div>
+          <span class="kfast-user-name">{{ firstname }}</span>
+          <span class="kfast-user-caret">▼</span>
+        </button>
+        <div class="kfast-dropdown">
+          {% assign profile_nav = weblinks['Profile Navigation'] %}
+          {% if profile_nav %}
+            {% for link in profile_nav.weblinks %}
+              <a href="{{ link.url | escape }}" class="kfast-dropdown-item">{{ link.name | escape }}</a>
+            {% endfor %}
+            <div class="kfast-dropdown-divider"></div>
+          {% endif %}
+          <a href="{{ website.sign_out_url_substitution }}" class="kfast-dropdown-item">Logga ut</a>
+        </div>
+      {% else %}
+        <a href="{{ website.sign_in_url_substitution }}" class="kfast-login-btn">
+          Logga in
+        </a>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<script>
+  // Set active link
+  document.addEventListener('DOMContentLoaded', function() {
+    var currentPath = window.location.pathname;
+    var navLinks = document.querySelectorAll('.kfast-nav-link');
+    navLinks.forEach(function(link) {
+      var linkPath = link.getAttribute('href');
+      if (linkPath && currentPath.includes(linkPath) && linkPath !== '/') {
+        link.classList.add('active');
+      }
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('.kfast-user-section')) {
+        document.querySelectorAll('.kfast-dropdown').forEach(function(d) {
+          d.classList.remove('show');
+        });
+      }
+    });
+    
+    // Header search functionality
+    var headerSearch = document.getElementById('headerSearch');
+    if (headerSearch) {
+      headerSearch.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          var query = headerSearch.value.trim();
+          if (query) {
+            // Redirect to Ärenden page with search
+            window.location.href = '/Ärenden?qName=' + encodeURIComponent(query);
+          }
+        }
+      });
+      
+      // Focus search with Ctrl+K or Cmd+K
+      document.addEventListener('keydown', function(e) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+          e.preventDefault();
+          headerSearch.focus();
+        }
+      });
+    }
+  });
+</script>

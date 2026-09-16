@@ -1,0 +1,143 @@
+{% fetchxml topics %}
+<fetch version='1.0' output-format='xml-platform' mapping='logical'>
+  <entity name='faq_topic'>
+    <attribute name='faq_topictitle' />
+    <attribute name='faq_topicicon' />
+    <attribute name='faq_topicid' />
+    <attribute name='faq_parenttopic' />
+    <filter type='and'>
+      <condition attribute='faq_parenttopic' operator='null' />
+    </filter>
+    <order attribute='faq_topicorder' descending='false' />
+  </entity>
+</fetch>
+{% endfetchxml %}
+{% if topics.results and topics.results.entities and topics.results.entities.size > 0 %}
+  {% assign entityCode = topics.results.entities[0].objecttypecode %}
+{% endif %}
+{% assign topicsResult = topics.results.entities %}
+
+{% for topic in topicsResult %}
+  {% if topic.faq_topicid == request.params.q %}
+    {% assign topicName = topic.faq_topictitle %}
+    {% assign topicID = topic.faq_topicid %}
+  {% endif %}
+{% endfor %}
+{% assign searchQuery = request.params.search %}
+
+{% fetchxml subtopics %}
+<fetch version='1.0' output-format='xml-platform' mapping='logical'>
+  <entity name='faq_topic'>
+    <attribute name='faq_topictitle' />
+    <attribute name='faq_topicicon' />
+    <attribute name='faq_topicid' />
+    <attribute name='faq_parenttopic' />
+    <filter type='and'>
+      <condition attribute='faq_parenttopic' operator='eq' value='{{topicID}}' uiname='{{topicName}}' uitype='faq_topic' />
+    </filter>
+  </entity>
+</fetch>
+{% endfetchxml %}
+{% if subtopics.results and subtopics.results.entities and subtopics.results.entities.size > 0 %}
+  {% assign entityCode = subtopics.results.entities[0].objecttypecode %}
+{% endif %}
+{% assign subTopicsResult = subtopics.results.entities %}
+
+{% fetchxml articles %}
+<fetch version='1.0' output-format='xml-platform' mapping='logical'>
+  <entity name='faq_article'>
+    <attribute name='faq_articletitle' />
+    <attribute name='faq_articleid' />
+    <link-entity name='faq_topic' from='faq_topicid' to='faq_topic' link-type='inner' alias='ab' />
+    <filter type='and'>
+      <condition attribute='faq_publishedstatus' operator='eq' value='1' />
+    </filter>
+    <order attribute='faq_featuredarticleorder' descending='false' />
+  </entity>
+</fetch>
+{% endfetchxml %}
+{% if articles.results and articles.results.entities and articles.results.entities.size > 0 %}
+  {% assign articlesResult = articles.results.entities %}
+{% endif %}
+
+{% fetchxml parentArticles %}
+<fetch version='1.0' output-format='xml-platform' mapping='logical'>
+  <entity name='faq_article'>
+    <attribute name='faq_articletitle' />
+    <attribute name='faq_topic' />
+    <attribute name='faq_articleid' />
+    <link-entity name='faq_topic' from='faq_topicid' to='faq_topic' link-type='inner'>
+      <filter type='and'>
+        <condition attribute='faq_publishedstatus' operator='eq' value='1' />
+        <condition attribute='faq_topicid' operator='eq' value='{{topicID}}' />
+      </filter>
+    </link-entity>
+  </entity>
+</fetch>
+{% endfetchxml %}
+{% if parentArticles.results and parentArticles.results.entities and parentArticles.results.entities.size > 0 %}
+  {% assign parentArticlesExist = true %}
+{% else %}
+  {% assign parentArticlesExist = false %}
+{% endif %}
+
+<div class='categories-container'>
+  <div class='category-list-container'>
+      <a href='/' class='category-list-a' aria-label='Back to topics'> <img id='img-back-breadcrumb' alt='back breadcrumb' src='/back-breadcrumb.png'>Back to Topics</a>
+    <hr style='margin: 48px 0;'>
+    <ul class='category-list'>
+      {% for topic in topicsResult %}
+        {% if topic.faq_topicicon.Url == empty %}
+          <li class='category-list-item'>
+            <a href='/topics/?q={{topic.faq_topicid}}' aria-current='page' aria-label='{{ topic.faq_topictitle }} link current page' class='category-list-title-active'>{{ topic.faq_topictitle }}</a>
+          </li>
+        {% else %}
+          {% if topic.faq_topicid == request.params.q %}
+            <li class='category-list-item'>
+              <img src='{{topic.faq_topicicon.Url}}' aria-current='page' alt='{{ topic.faq_topictitle }} topic image icon' class='list-icon'> <a href='/topics/?q={{topic.faq_topicid}}' aria-label='{{ topic.faq_topictitle }} link current page' class='category-list-title-active'>{{ topic.faq_topictitle }}</a>
+            </li>
+          {% else %}
+            <li class='category-list-item'>
+              <img src='{{topic.faq_topicicon.Url}}' alt='{{ topic.faq_topictitle }} topic image icon' class='list-icon'> <a href='/topics/?q={{topic.faq_topicid}}' aria-label='{{ topic.faq_topictitle }} link' class='category-list-title'>{{ topic.faq_topictitle }}</a>
+            </li>
+          {% endif %}
+        {% endif %}
+      {% endfor %}
+    </ul>
+  </div>
+  <div class='category-main'>
+    <a href='/' class='breadcrumb'
+      >Topics<img id='img-next-breadcrumb' alt='next breadcrumb' src='/next-breadcrumb.png'><span style='font-weight: 700;'>{{ topicName }}</span></a
+    >
+    <h2 class='category-h2' id='topic' style='font-size:28px;margin:48px 0 0'>{{ topicName }}</h2>
+    {% if parentArticlesExist == true %}
+      <ul class='category-list-ul'>
+        {% for article in articlesResult %}
+          {% if article.faq_faq_article_Topic_faq_topic.faq_topicid == request.params.q %}
+            <li>
+              <a href='/articles/?q={{article.faq_articleid}}&t={{request.params.q}}' class='category-a'>{{ article.faq_articletitle }}</a>
+            </li>
+          {% endif %}
+        {% endfor %}
+      </ul>
+      <hr style='margin: 48px 0;'>
+    {% else %}
+      <hr style='margin: 48px 0;'>
+    {% endif %}
+    {% for subtopic in subTopicsResult %}
+      <div class='category-section'>
+        <h3 class='category-h3'>{{ subtopic.faq_topictitle }}</h3>
+        <ul class='category-list-ul'>
+          {% for article in articlesResult %}
+            {% if subtopic.faq_topictitle == article.faq_faq_article_Topic_faq_topic.faq_topictitle %}
+              <li>
+                <a href='/articles/?q={{article.faq_articleid}}&t={{request.params.q}}' class='category-a'>{{ article.faq_articletitle }}</a>
+              </li>
+            {% endif %}
+          {% endfor %}
+        </ul>
+      </div>
+      <hr style='margin: 48px 0;'>
+    {% endfor %}
+  </div>
+</div>

@@ -1,0 +1,73 @@
+<footer role="contentinfo">
+  <div class="footer-inner">
+    <p>
+      <span class="copy-symbol">©</span>
+      <span class="copy-year">{{ now | date: 'yyyy' }}</span>
+      <span class="copy-company">Eskilstuna Kommunfastigheter AB</span>
+      <span class="copy-rights">Med ensamrätt.</span>
+    </p>
+  </div>
+</footer>
+
+<style>
+footer[role="contentinfo"] {
+  background: linear-gradient(135deg, #f18d35f6 0%, #e47303af 50%, #e47303e3 100%);
+  border-top: 3px solid #f18d35;
+  border-top-right-radius: 12px;
+  border-top-left-radius: 12px;
+  box-shadow: 45px;
+  padding: 1.5rem 2rem;
+  width: 100%;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.footer-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.footer-inner p {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: 0.95rem;
+}
+
+.copy-symbol {
+  color: #DCDCDC;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.copy-year {
+  color: #DCDCDC;
+  font-weight: 600;
+}
+
+.copy-company {
+  color: #ffffff;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+
+.copy-rights {
+  color: #DCDCDC;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 600px) {
+  footer[role="contentinfo"] {
+    padding: 1rem;
+  }
+  
+  .footer-inner p {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+}
+</style>

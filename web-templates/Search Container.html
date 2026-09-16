@@ -1,0 +1,111 @@
+{%manifest%}
+{
+  "type":"functional",
+  "displayName": "Search Results Headings",
+  "tables": ["faq_topic", "faq_article"],
+  "params":[
+      {
+         "id":"articles_query_text",
+         "displayName":"Articles results heading",
+         "description":"The heading that will be displayed when there are results for articles"
+      },
+       {
+         "id":"topics_query_text",
+         "displayName":"Topics results heading",
+         "description":"The heading that will be displayed when there are results for headings"
+      }
+  ]
+}
+{%endmanifest%}
+
+{% assign searchQuery = request.params.search %}
+
+{% fetchxml topics %}
+<fetch version='1.0' output-format='xml-platform' mapping='logical'>
+    <entity name='faq_topic'>
+        <attribute name='faq_topicid' />
+        <attribute name='faq_topictitle' />
+        <attribute name='faq_topicicon' />
+        <filter type='and'>
+            <condition attribute='faq_topictitle' operator='like' value='%{{searchQuery}}%' />
+            <condition attribute='faq_publishedstatus' operator='eq' value='1' />
+            <condition attribute='faq_parenttopic' operator='null' />
+        </filter>
+    </entity>
+</fetch>
+{% endfetchxml %}
+{% if topics.results and topics.results.entities and topics.results.entities.size > 0 %}
+  {% assign entityCode = topics.results.entities[0].objecttypecode %}
+  {% assign topicsFound = true %}
+{% endif %}
+{% assign topicsResult = topics.results.entities %}
+
+{% fetchxml articles %}
+<fetch version='1.0' output-format='xml-platform' mapping='logical'>
+    <entity name='faq_article'>
+        <attribute name='faq_articleid' />
+        <attribute name='faq_articletitle' />
+        <link-entity name='faq_topic' from='faq_topicid' to='faq_topic' link-type='inner' alias='ab' />
+        <filter>
+            <condition attribute='faq_publishedstatus' operator='eq' value='1' />
+        </filter>
+        <filter type='or'>
+            <condition attribute='faq_articletitle' operator='like' value='%{{searchQuery}}%' />
+            <condition attribute='faq_articlebody' operator='like' value='%{{searchQuery}}%' />
+        </filter>
+    </entity>
+</fetch>
+{% endfetchxml %}
+{% if articles.results and articles.results.entities and articles.results.entities.size > 0 %}
+  {% assign articlesResult = articles.results.entities %}
+  {% assign articlesFound = true %}
+{% endif %}
+
+<div class='search-categories-container'>
+    {% if topicsFound == true %}
+    <div>
+        <h2 style='margin-bottom: 16px;' tabindex="0">{{ topics_query_text | default: "Topics found for query" }} "{{searchQuery}}"</h2>
+        <ul class='category-list'>
+            {% for topic in topicsResult %}
+            {% if topic.faq_topicicon.Url == null %}
+            <li class='category-list-item'>
+                <a style='color: #000 !important;' href='/topics/?q={{topic.faq_topicid}}' class='category-list-title-active'>{{ topic.faq_topictitle }}</a>
+            </li>
+            {% else %}
+            {% unless topic.faq_parenttopic == empty %}
+            {% if topic.faq_topicid == request.params.q %}
+            <li class='category-list-item'>
+                <img src='{{topic.faq_topicicon.Url}}' alt='' class='list-icon'> <a href='/topics/?q={{topic.faq_topicid}}' class='category-list-title-active'>{{ topic.faq_topictitle }}</a>
+            </li>
+            {% else %}
+            <li class='category-list-item'>
+                <img src='{{topic.faq_topicicon.Url}}' alt='' class='list-icon'> <a href='/topics/?q={{topic.faq_topicid}}' class='category-list-title'>{{ topic.faq_topictitle }}</a>
+            </li>
+            {% endif %}
+            {% endunless %}
+            {% endif %}
+            {% endfor %}
+        </ul>
+    </div>
+    {% else %}
+    <div>
+        <h1 style='margin-bottom: 16px;' tabindex="0">{% include 'snippet', snippet_name: 'NoTopic' %}</h1>
+    </div>
+    {% endif %}
+    {% if articlesFound == true %}
+    <div>
+        <h2 style='margin-bottom: 16px;' tabindex="0">{{ articles_query_text | default: "Articles found for query" }} "{{searchQuery}}"</h2>
+        <ul class='category-list-ul'>
+            {% for article in articlesResult %}
+            <li>
+                <a href='/articles/?q={{article.faq_articleid}}&t={{article.faq_faq_article_Topic_faq_topic.faq_topicid}}' class='category-a'>{{ article.faq_articletitle }}</a>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% else %}
+    <div>
+        <h1 style='margin-bottom: 16px;' tabindex="0">{% include 'snippet', snippet_name: 'NoArticle' %}</h1>
+    </div>
+    {% endif %}
+</div>

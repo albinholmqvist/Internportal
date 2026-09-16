@@ -1,0 +1,49 @@
+{% fetchxml articles %}
+<fetch version="1.0" output-format="xml-platform" mapping="logical">
+  <entity name="faq_article">
+    <attribute name="faq_articletitle"/>
+    <attribute name="faq_articleid"/>
+    <attribute name="faq_articlebody"/>
+    <attribute name="faq_topic"/>
+    <attribute name="faq_publishedstatus"/>
+  </entity>
+</fetch>
+{% endfetchxml %}
+{% if articles.results and articles.results.entities and articles.results.entities.size > 0 %}
+{% assign entityCode = articles.results.entities[0].objecttypecode %}
+{% endif %}
+{% assign articlesResult = articles.results.entities %}
+{% assign relatedArticles = false %}
+
+{% for article in articlesResult %}
+    {% if article.faq_articleid == request.params.q %}
+        {% assign articleTopic = article.faq_faq_article_Topic_faq_topic.faq_topictitle %}
+        {% for article in articlesResult %}
+            {% if article.faq_faq_article_Topic_faq_topic.faq_topictitle == articleTopic %}
+                {% if article.faq_articleid != request.params.q %}
+                    {% assign relatedArticles = true %}
+                {% endif %}
+            {% endif %}
+        {% endfor %}
+        <div class="answers-container">
+            <a href="/admin-articles" class="breadcrumb">< Back to articles</a>
+            <h1 class="answer-title">{{article.faq_articletitle}}</h1>
+            <hr style="margin: 48px 0">
+            {{article.faq_articlebody}}
+            {% if relatedArticles == true %}
+            <div class="category-section" style="margin-top: 56px">
+                <h2 class="category-h2">Related Articles</h2>
+                <ul class="category-list-ul">
+                    {% for article in articlesResult %}
+                        {% if article.faq_faq_article_Topic_faq_topic.faq_topictitle == articleTopic %}
+                            {% if article.faq_articleid != request.params.q %}
+                                <li><a href="/article/?q={{article.faq_articleid}}&t={{request.params.t}}" class="category-a">{{article.faq_articletitle}}</a></li>
+                            {% endif %}
+                        {% endif %}
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+    {% endif %}
+{% endfor %}
