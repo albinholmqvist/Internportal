@@ -1,0 +1,58 @@
+{%manifest%}
+{
+  "type":"functional",
+  "displayName": "Featured Articles",
+  "tables": ["faq_article"],
+  "params":[
+      {
+        "id":"num_articles",
+        "displayName":"How many articles should be displayed?",
+        "description":"The max number of articles that the user will see"
+      }
+  ]
+}
+{%endmanifest%}
+
+<!-- Get Article types set values -->
+{% fetchxml articles %}
+<fetch version="1.0" output-format="xml-platform" mapping="logical">
+    <entity name="faq_article">
+    <attribute name="faq_articletitle" />
+    <attribute name="faq_articleid" />
+    <filter>
+      <condition attribute="faq_publishedstatus" operator="eq" value="1" />
+    </filter>
+    <order attribute="faq_featuredarticleorder" />
+  </entity>
+</fetch>
+{% endfetchxml %}
+<script>
+  function updateApplication(appName) {
+    var queryUrl = '/summary/?q=';
+    queryUrl = queryUrl + appName.replaceAll(' ', '-')
+    window.location.href = queryUrl
+  }
+</script>
+{% if articles.results and articles.results.entities and articles.results.entities.size > 0 %}
+{% assign entityCode = articles.results.entities[0].objecttypecode %}
+{% endif %}
+{% assign articlesResult = articles.results.entities %}
+
+{% assign articlesCount = num_articles | integer | default: 4 %}
+
+<div class="home-topArticles-container">
+    <div class="home-topArticles-header">
+        <h2 id="featured-article-title" tabindex='0'>Featured Articles</h2>
+        <hr style="margin: 56px 0;">
+    </div>
+    <div class="home-topArticles">
+    {% for article in articlesResult limit:articlesCount %}
+      {% if article.faq_featuredarticleorder > 0 %}
+        <div class="featured-item">
+          <a href="/articles/?q={{article.faq_articleid}}" class="featured-article-a" data-component-theme="portalThemeColor7" value="{{article.attributevalue}}">{{article.faq_articletitle | escape}}</a>
+         <span class="fa fa-chevron-right" aria-hidden="true"></span>
+        </div>
+      {% endif %}
+    {% endfor %}
+    </div>
+</div>

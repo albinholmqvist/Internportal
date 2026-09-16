@@ -1,0 +1,30 @@
+<!-- Get instructors -->
+{% fetchxml topics %}
+<fetch version='1.0' output-format='xml-platform' mapping='logical'>
+  <entity name='faq_topic'>
+    <attribute name='faq_topictitle' />
+    <attribute name='faq_topicid' />
+    <order attribute='faq_topicorder' descending='false' />
+    <filter type='and'>
+      <condition attribute='faq_parenttopic' operator='null' />
+    </filter>
+  </entity>
+</fetch>
+{% endfetchxml %}
+<script>
+//save topics in array
+var topicsArray = [];
+
+{% if topics.results.entities %}
+  {% for topic in topics.results.entities %}
+    topicsArray.push({id: "{{topic.faq_topicid}}", title: "{{topic.faq_topictitle}}"});
+  {% endfor %}
+{% endif %}
+
+//File upload function called by the PCF
+window.uploadImagePCF = function (name, memetype, body) {
+    topicImageType = memetype;
+    topicImageName = name;
+    documentbodyContents = body.substring(body.indexOf(',') + 1);           
+}
+</script>
